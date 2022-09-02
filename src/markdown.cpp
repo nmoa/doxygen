@@ -1040,8 +1040,9 @@ void Markdown::writeMarkdownImage(const char *fmt, bool inline_img, bool explici
   }
   m_out.addStr(" ");
   m_out.addStr(fmt);
-  m_out.addStr(" ");
+  m_out.addStr(" \"");
   m_out.addStr(link.mid(fd ? 0 : 5));
+  m_out.addStr("\"");
   if (!explicitTitle && !content.isEmpty())
   {
     m_out.addStr(" \"");
