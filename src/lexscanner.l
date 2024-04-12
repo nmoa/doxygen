@@ -57,7 +57,7 @@ typedef yyguts_t *yyscan_t;
 struct lexscannerYY_state
 {
   COutlineParser   cOutlineParser;
-  const char *     inputString = 0;
+  const char *     inputString = nullptr;
   int              inputPosition = 0;
 
   int              lastContext = 0;
@@ -71,7 +71,7 @@ struct lexscannerYY_state
   bool             insideCode = FALSE;
   QCString         delimiter;
   QCString         docBlockName;
-  uint32_t         fencedSize = 0;
+  size_t           fencedSize = 0;
   bool             nestedComment = false;
 
   QCString         prefix = "yy";
@@ -82,7 +82,7 @@ struct lexscannerYY_state
   int              roundCount = 0;
 
   QCString         fileName;
-  ClangTUParser   *clangParser = 0;
+  ClangTUParser   *clangParser = nullptr;
 
   std::shared_ptr<Entry> current;
   std::shared_ptr<Entry> current_root;
@@ -860,7 +860,7 @@ NONLopt [^\n]*
 <DocCopyBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]* {
                             yyextra->cCodeBuffer += yytext;
                             QCString pat = substitute(yytext,"*"," ");
-                            if (yyextra->fencedSize==pat.stripWhiteSpace().length())
+                            if (yyextra->docBlockName == "~~~" && yyextra->fencedSize==pat.stripWhiteSpace().length())
                             {
                               BEGIN(DocBlock);
                             }
@@ -868,7 +868,7 @@ NONLopt [^\n]*
 <DocCopyBlock>^({B}*"*"+)?{B}{0,3}"```"[`]* {
                             yyextra->cCodeBuffer += yytext;
                             QCString pat = substitute(yytext,"*"," ");
-                            if (yyextra->fencedSize==pat.stripWhiteSpace().length())
+                            if (yyextra->docBlockName == "```" && yyextra->fencedSize==pat.stripWhiteSpace().length())
                             {
                               BEGIN(DocBlock);
                             }
@@ -989,7 +989,7 @@ static void handleCCode(yyscan_t yyscanner)
                                      yyextra->cCodeBuffer.data(),
                                      yyextra->current_root,
                                      yyextra->clangParser);
-  yyextra->cCodeBuffer.resize(0);
+  yyextra->cCodeBuffer.clear();
   return;
 }
 //----------------------------------------------------------------------------

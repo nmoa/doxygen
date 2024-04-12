@@ -120,7 +120,8 @@ class OutputCodeDefer
 class OutputCodeExtension
 {
   public:
-    virtual ~OutputCodeExtension() = default;
+    ABSTRACT_BASE_CLASS(OutputCodeExtension)
+
     virtual OutputType type() const = 0;
     virtual void codify(const QCString &s) = 0;
     virtual void writeCodeLink(CodeSymbolType type,
@@ -423,6 +424,7 @@ namespace OutputGenIntf
   template<class T> struct endMemberDoc                { static constexpr auto method = &T::endMemberDoc;                };
   template<class T> struct startDoxyAnchor             { static constexpr auto method = &T::startDoxyAnchor;             };
   template<class T> struct endDoxyAnchor               { static constexpr auto method = &T::endDoxyAnchor;               };
+  template<class T> struct addLabel                    { static constexpr auto method = &T::addLabel;                    };
   template<class T> struct writeLatexSpacing           { static constexpr auto method = &T::writeLatexSpacing;           };
   template<class T> struct startDescForItem            { static constexpr auto method = &T::startDescForItem;            };
   template<class T> struct endDescForItem              { static constexpr auto method = &T::endDescForItem;              };
@@ -492,6 +494,8 @@ namespace OutputGenIntf
   template<class T> struct endParameterType            { static constexpr auto method = &T::endParameterType;            };
   template<class T> struct startParameterName          { static constexpr auto method = &T::startParameterName;          };
   template<class T> struct endParameterName            { static constexpr auto method = &T::endParameterName;            };
+  template<class T> struct startParameterExtra         { static constexpr auto method = &T::startParameterExtra;         };
+  template<class T> struct endParameterExtra           { static constexpr auto method = &T::endParameterExtra;           };
   template<class T> struct startParameterDefVal        { static constexpr auto method = &T::startParameterDefVal;        };
   template<class T> struct endParameterDefVal          { static constexpr auto method = &T::endParameterDefVal;          };
   template<class T> struct startParameterList          { static constexpr auto method = &T::startParameterList;          };
@@ -538,6 +542,7 @@ class OutputList
     OutputList &operator=(const OutputList &ol);
     OutputList(OutputList &&) = delete;
     OutputList &operator=(OutputList &&) = delete;
+   ~OutputList() = default;
 
     template<class DocGenerator>
     void add()
@@ -733,6 +738,8 @@ class OutputList
     { foreach<OutputGenIntf::startDoxyAnchor>(fName,manName,anchor,name,args); }
     void endDoxyAnchor(const QCString &fn,const QCString &anchor)
     { foreach<OutputGenIntf::endDoxyAnchor>(fn,anchor); }
+    void addLabel(const QCString &fName,const QCString &anchor)
+    { foreach<OutputGenIntf::addLabel>(fName,anchor); }
     void writeLatexSpacing()
     { foreach<OutputGenIntf::writeLatexSpacing>(); }
     void startDescForItem()
@@ -800,8 +807,8 @@ class OutputList
     { foreach<OutputGenIntf::writeNavigationPath>(s); }
     void writeLogo()
     { foreach<OutputGenIntf::writeLogo>(); }
-    void writeQuickLinks(HighlightedItem hli,const QCString &file,bool needsFolding)
-    { foreach<OutputGenIntf::writeQuickLinks>(hli,file,needsFolding); }
+    void writeQuickLinks(HighlightedItem hli,const QCString &file)
+    { foreach<OutputGenIntf::writeQuickLinks>(hli,file); }
     void writeSummaryLink(const QCString &file,const QCString &anchor,const QCString &title,bool first)
     { foreach<OutputGenIntf::writeSummaryLink>(file,anchor,title,first); }
     void startContents()
@@ -872,8 +879,12 @@ class OutputList
     { foreach<OutputGenIntf::endParameterType>(); }
     void startParameterName(bool one)
     { foreach<OutputGenIntf::startParameterName>(one); }
-    void endParameterName(bool last,bool one,bool bracket)
-    { foreach<OutputGenIntf::endParameterName>(last,one,bracket); }
+    void endParameterName()
+    { foreach<OutputGenIntf::endParameterName>(); }
+    void startParameterExtra()
+    { foreach<OutputGenIntf::startParameterExtra>(); }
+    void endParameterExtra(bool last,bool one,bool bracket)
+    { foreach<OutputGenIntf::endParameterExtra>(last,one,bracket); }
     void startParameterDefVal(const char *separator)
     { foreach<OutputGenIntf::startParameterDefVal>(separator); }
     void endParameterDefVal()

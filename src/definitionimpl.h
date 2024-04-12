@@ -30,7 +30,7 @@ class DefinitionImpl
     DefinitionImpl(
         Definition *def,
         const QCString &defFileName,int defLine,int defColumn,
-        const QCString &name,const char *b=0,const char *d=0,
+        const QCString &name,const char *b=nullptr,const char *d=nullptr,
         bool isSymbol=TRUE);
     ~DefinitionImpl();
 
@@ -148,7 +148,7 @@ class DefinitionMixin : public Base
     /*! Create a new definition */
     DefinitionMixin(
         const QCString &defFileName,int defLine,int defColumn,
-        const QCString &name,const char *b=0,const char *d=0,
+        const QCString &name,const char *b=nullptr,const char *d=nullptr,
         bool isSymbol=TRUE) : m_impl(this,defFileName,defLine,defColumn,name,b,d,isSymbol) {}
     ~DefinitionMixin() = default;
 
@@ -437,8 +437,8 @@ class DefinitionAliasMixin : public Base
 
   private:
     virtual Definition *toDefinition_() { return this; }
-    DefinitionMutable *toDefinitionMutable_() override { return 0; }
-    const DefinitionImpl *toDefinitionImpl_() const override { return 0; }
+    DefinitionMutable *toDefinitionMutable_() override { return nullptr; }
+    const DefinitionImpl *toDefinitionImpl_() const override { return nullptr; }
 
     void _setSymbolName(const QCString &name) override { m_symbolName = name; }
     QCString _symbolName() const override { return m_symbolName; }

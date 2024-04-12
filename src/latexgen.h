@@ -76,7 +76,7 @@ class LatexCodeGenerator
     TextStream *m_t;
     QCString m_relPath;
     QCString m_sourceFileName;
-    int m_col = 0;
+    size_t m_col = 0;
     bool m_doxyCodeLineOpen = false;
     int m_usedTableLevel = 0;
     bool m_insideTabbing = false;
@@ -191,6 +191,7 @@ class LatexGenerator : public OutputGenerator
     void endMemberDoc(bool);
     void startDoxyAnchor(const QCString &,const QCString &,const QCString &,const QCString &,const QCString &);
     void endDoxyAnchor(const QCString &,const QCString &);
+    void addLabel(const QCString &,const QCString &);
     void writeChar(char c);
     void writeLatexSpacing() { m_t << "\\hspace{0.3cm}"; }
     void writeStartAnnoItem(const QCString &type,const QCString &file,
@@ -224,7 +225,7 @@ class LatexGenerator : public OutputGenerator
     void writeSplitBar(const QCString &) {}
     void writeNavigationPath(const QCString &) {}
     void writeLogo() {}
-    void writeQuickLinks(HighlightedItem,const QCString &,bool) {}
+    void writeQuickLinks(HighlightedItem,const QCString &) {}
     void writeSummaryLink(const QCString &,const QCString &,const QCString &,bool) {}
     void startContents() {}
     void endContents() {}
@@ -262,7 +263,9 @@ class LatexGenerator : public OutputGenerator
     void startParameterType(bool,const QCString &);
     void endParameterType();
     void startParameterName(bool);
-    void endParameterName(bool,bool,bool);
+    void endParameterName();
+    void startParameterExtra();
+    void endParameterExtra(bool last,bool one,bool bracket);
     void startParameterDefVal(const char *s) { docify(s); startTypewriter(); }
     void endParameterDefVal() { endTypewriter(); }
     void startParameterList(bool);

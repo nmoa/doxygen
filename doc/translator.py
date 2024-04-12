@@ -58,7 +58,7 @@
              - [any mark] introduced instead of [unreachable] only
              - marks highlighted in HTML
   2010/08/30 - Highlighting in what will be the table in langhowto.html modified.
-  2010/09/27 - The underscore in \latexonly part of the generated language.dox
+  2010/09/27 - The underscore in \\latexonly part of the generated language.dox
                was prefixed by backslash (was LaTeX related error).
   2013/02/19 - Better diagnostics when translator_xx.h is too crippled.
   2013/06/25 - TranslatorDecoder checks removed after removing the class.
@@ -570,6 +570,8 @@ class Transl:
                     pass
                 elif tokenId == 'rcurly':
                     status = 11         # expected end of class
+                elif tokenId == 'id' and tokenStr == 'ABSTRACT_BASE_CLASS':
+                    status = 18
                 else:
                     self.__unexpectedToken(status, tokenId, tokenLineNo)
 
@@ -709,6 +711,16 @@ class Transl:
                     prototype += tokenStr
                     uniPrototype += tokenStr
                     status = 7
+                else:
+                    self.__unexpectedToken(status, tokenId, tokenLineNo)
+
+            elif status == 18:    # start of the ABSTRACT_BASE_CLASS
+                if tokenId == 'lpar':
+                    pass
+                elif tokenId == 'rpar':
+                    status = 2
+                elif tokenId == 'id':
+                    pass
                 else:
                     self.__unexpectedToken(status, tokenId, tokenLineNo)
 
@@ -878,12 +890,12 @@ class Transl:
 
                         assert(uniPrototype not in self.prototypeDic)
                         # Insert new dictionary item, unless they have a default in translator.h
-                        if (not (prototype=="virtual QCString latexDocumentPost()" or
-                                 prototype=="virtual QCString latexDocumentPre()" or
-                                 prototype=="virtual QCString latexCommandName()" or
-                                 prototype=="virtual QCString latexFont()" or
-                                 prototype=="virtual QCString latexFontenc()" or
-                                 prototype=="virtual bool needsPunctuation()")):
+                        if (not (prototype=="QCString latexDocumentPost()" or
+                                 prototype=="QCString latexDocumentPre()" or
+                                 prototype=="QCString latexCommandName()" or
+                                 prototype=="QCString latexFont()" or
+                                 prototype=="QCString latexFontenc()" or
+                                 prototype=="bool needsPunctuation()")):
                             self.prototypeDic[uniPrototype] = prototype
                         status = 2      # body consumed
                         methodId = None # outside of any method
@@ -1471,7 +1483,7 @@ class TrManager:
         # Remove the items for identifiers that were found in the file.
         while lst_in:
             item = lst_in.pop(0)
-            rexItem = re.compile('.*' + item + ' *\(')
+            rexItem = re.compile(r'.*' + item + r' *\(')
             if rexItem.match(cont):
                 del dic[item]
 

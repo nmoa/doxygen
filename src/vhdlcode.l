@@ -84,17 +84,17 @@ struct vhdlcodeYY_state
   std::unordered_set<std::string> vhdlKeyDict;
   QCString      tempComp;
   QCString      PortMapComp;
-  const MemberDef *   vhdlMember = 0;
+  const MemberDef *   vhdlMember = nullptr;
   QCString      funcProto;
 
-  OutputCodeList * code = 0;
-  const char *  inputString = 0;     //!< the code fragment as text
+  OutputCodeList * code = nullptr;
+  const char *  inputString = nullptr;     //!< the code fragment as text
   int           inputPosition = 0;   //!< read offset during parsing
   QCString      fileName;
   int           inputLines = 0;      //!< number of line in the code fragment
   int           yyLineNr = 0;        //!< current line number
   bool          insideCodeLine = false;
-  const Definition *searchCtx = 0;
+  const Definition *searchCtx = nullptr;
 
   bool          exampleBlock = false;
   QCString      exampleName;
@@ -103,11 +103,11 @@ struct vhdlcodeYY_state
   bool          currArch = false;
 
   std::unique_ptr<FileDef> exampleFileDef;
-  const FileDef *     sourceFileDef = 0;
-  const Definition *  currentDefinition = 0;
-  const MemberDef *   currentMemberDef = 0;
+  const FileDef *     sourceFileDef = nullptr;
+  const Definition *  currentDefinition = nullptr;
+  const MemberDef *   currentMemberDef = nullptr;
   bool          includeCodeFragment = false;
-  const char *  currentFontClass = 0;
+  const char *  currentFontClass = nullptr;
 
   bool          lexInit = false;
   int           braceCount = 0;
@@ -466,7 +466,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 
 <ClassesName>{FUNCNAME}             {
                                       appStringLower(yyextra->prevString,yytext);
-                                      yyextra->currClass.resize(0);
+                                      yyextra->currClass.clear();
                                       yyextra->currClass.append(yytext);
                                       yyextra->currClass=yyextra->currClass.stripWhiteSpace();
 
@@ -486,7 +486,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                                       yyextra->code->codify(yytext);
                                       if (yyextra->braceCount==0 && !yyextra->isComponent)
                                       {
-                                        yyextra->tempComp.resize(0);
+                                        yyextra->tempComp.clear();
                                         BEGIN(Bases);
                                       }
                                       else
@@ -664,7 +664,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 
 
 <Bases>{ARCHITECTURE}               { // found architecture
-                                      yyextra->PortMapComp.resize(0);
+                                      yyextra->PortMapComp.clear();
                                       QCString temp = VhdlDocGen::getIndexWord(yytext,3);
                                       yyextra->currArch = true;
                                       temp+="::";
@@ -685,7 +685,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                                       temp=temp.stripWhiteSpace();
                                       temp.prepend("_");
                                       generateClassOrGlobalLink(yyscanner,*yyextra->code,temp);
-                                      yyextra->currClass.resize(0);
+                                      yyextra->currClass.clear();
                                       yyextra->currClass=temp;
                                       yyextra->isProto=false;
                                       yyextra->isPackageBody=true;
@@ -693,7 +693,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 
 <Bases>{PROCESS}                    { // found process
                                       yyextra->isFuncProto=true;
-                                      yyextra->funcProto.resize(0);
+                                      yyextra->funcProto.clear();
                                       yyextra->funcProto.append(yytext);
                                       yyextra->vhdlKeyDict.clear();
                                       appStringLower(yyextra->prevString,yytext);
@@ -732,7 +732,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 
 <Bases>{FUNC}                       {  // found function|procedure
                                       yyextra->vhdlKeyDict.clear();
-                                      yyextra->funcProto.resize(0);
+                                      yyextra->funcProto.clear();
                                       yyextra->isProto=false;
                                       yyextra->funcProto.append(yytext);
                                       yyextra->braceCount=1;
@@ -889,13 +889,13 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                                       {
                                         if (!Config_getBool(STRIP_CODE_COMMENTS))
                                         {
-                                          codifyLines(yyscanner,text,0,false,true);
+                                          codifyLines(yyscanner,text,QCString(),false,true);
                                         }
                                         else yyextra->yyLineNr++; // skip complete line, but count line
                                       }
                                       else // normal comment
                                       {
-                                        codifyLines(yyscanner,text,0,false,true);
+                                        codifyLines(yyscanner,text,QCString(),false,true);
                                       }
                                     }
 <*>{TEXTT}                          { // found normal or special comment after something
@@ -906,12 +906,12 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                                         // hide special comment
                                         if (!Config_getBool(STRIP_CODE_COMMENTS))
                                         {
-                                          codifyLines(yyscanner,text,0,false,true);
+                                          codifyLines(yyscanner,text,QCString(),false,true);
                                         }
                                       }
                                       else // normal comment
                                       {
-                                        codifyLines(yyscanner,text,0,false,true);
+                                        codifyLines(yyscanner,text,QCString(),false,true);
                                       }
                                     }
 
@@ -956,8 +956,8 @@ static bool checkVhdlString(yyscan_t yyscanner,QCString &name)
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   if (name.isEmpty()) return false;
 
-  int len=name.length();
-  if (name.at(0)=='"' && name.at(len-1)=='"' && len > 2)
+  size_t len=name.length();
+  if (len>2 && name.at(0)=='"' && name.at(len-1)=='"')
   {
     std::string inside = name.str().substr(1,len-2);
     static const reg::Ex regg(R"(\s+)"); // any number of whitespace
@@ -1170,7 +1170,7 @@ static void writeWord(yyscan_t yyscanner,const QCString &word,const QCString &cu
             }
           }
         }
-        temp.resize(0);
+        temp.clear();
         found=false;
       }
 
@@ -1337,7 +1337,7 @@ static void generateMemLink(yyscan_t yyscanner,OutputCodeList &ol,QCString &clNa
 
   QCString className=clName;
 
-  //MemberDef *comp=0;
+  //MemberDef *comp=nullptr;
   //bool isLocal=false;
 
   const MemberDef *md=VhdlDocGen::findMember(className,memberName);
@@ -1369,8 +1369,8 @@ static void generateClassOrGlobalLink(yyscan_t yyscanner,OutputCodeList &ol,
 
   if (className.isEmpty()) return;
 
-  ClassDef *cd=0;
-  //MemberDef *md=0;
+  ClassDef *cd=nullptr;
+  //MemberDef *md=nullptr;
   //bool isLocal=false;
   className.stripPrefix("_");
   cd = getClass(className);
@@ -1470,7 +1470,7 @@ static void writeFont(yyscan_t yyscanner,const char *s,const QCString &text)
 
 static void appStringLower(QCString& qcs,const char* text)
 {
-  qcs.resize(0);
+  qcs.clear();
   qcs.append(text);
   qcs=qcs.stripWhiteSpace();
 }
@@ -1525,8 +1525,8 @@ static void codifyMapLines(yyscan_t yyscanner,const QCString &text)
     }
     ctemp.fill(c,1);
     codifyLines(yyscanner,ctemp);
-    ctemp.resize(0);
-    temp.resize(0);
+    ctemp.clear();
+    temp.clear();
   }//while
 }//codifyMapLines
 
@@ -1549,7 +1549,7 @@ static void writeFuncProto(yyscan_t yyscanner)
   QCString temp(qlist[0]);
   codifyLines(yyscanner,temp,yyextra->currClass);
   yyextra->funcProto.stripPrefix(temp);
-  temp.resize(0);
+  temp.clear();
   temp=yyextra->currClass;
   if (yyextra->isPackageBody)
   {

@@ -359,7 +359,7 @@ DB_VIS_C
     case DocVerbatim::Dot:
       {
         static int dotindex = 1;
-        QCString baseName(4096);
+        QCString baseName(4096, QCString::ExplicitSize);
         QCString name;
         QCString stext = s.text();
         m_t << "<para>\n";
@@ -384,7 +384,7 @@ DB_VIS_C
     case DocVerbatim::Msc:
       {
         static int mscindex = 1;
-        QCString baseName(4096);
+        QCString baseName(4096, QCString::ExplicitSize);
         QCString name;
         QCString stext = s.text();
         m_t << "<para>\n";
@@ -531,7 +531,7 @@ DB_VIS_C
                                         op.line(),    // startLine
                                         -1,    // endLine
                                         FALSE, // inline fragment
-                                        0,     // memberDef
+                                        nullptr,     // memberDef
                                         op.showLineNo()  // show line numbers
                                        );
     }
@@ -619,7 +619,19 @@ void DocbookDocVisitor::operator()(const DocAutoListItem &li)
 {
 DB_VIS_C
   if (m_hide) return;
-  m_t << "<listitem>";
+  switch (li.itemNumber())
+  {
+    case DocAutoList::Unchecked: // unchecked
+      m_t << "<listitem override=\"unchecked\">";
+      break;
+    case DocAutoList::Checked_x: // checked with x
+    case DocAutoList::Checked_X: // checked with X
+      m_t << "<listitem override=\"checked\">";
+      break;
+    default:
+      m_t << "<listitem>";
+      break;
+  }
   visitChildren(li);
   m_t << "</listitem>";
 }
@@ -798,6 +810,16 @@ DB_VIS_C
         m_t << "<caution><title>" << convertToDocBook(theTranslator->trAttention()) << "</title>\n";
       }
       break;
+    case DocSimpleSect::Important:
+      if (m_insidePre)
+      {
+        m_t << "<important><title>" << theTranslator->trImportant() << "</title>\n";
+      }
+      else
+      {
+        m_t << "<important><title>" << convertToDocBook(theTranslator->trImportant()) << "</title>\n";
+      }
+      break;
     case DocSimpleSect::User:
     case DocSimpleSect::Rcs:
     case DocSimpleSect::Unknown:
@@ -829,6 +851,9 @@ DB_VIS_C
       break;
     case DocSimpleSect::Attention:
       m_t << "</caution>\n";
+      break;
+    case DocSimpleSect::Important:
+      m_t << "</important>\n";
       break;
     case DocSimpleSect::Warning:
       m_t << "</warning>\n";
@@ -876,12 +901,10 @@ DB_VIS_C
   m_t << "<section xml:id=\"_" <<  stripPath(s.file());
   if (!s.anchor().isEmpty()) m_t << "_1" << s.anchor();
   m_t << "\">\n";
-  m_t << "<title>";
   if (s.title())
   {
     std::visit(*this,*s.title());
   }
-  m_t << "</title>\n";
   visitChildren(s);
   m_t << "</section>\n";
 }

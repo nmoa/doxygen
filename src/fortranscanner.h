@@ -29,6 +29,7 @@ class FortranOutlineParser : public OutlineParserInterface
   public:
     FortranOutlineParser(FortranFormat format=FortranFormat_Unknown);
    ~FortranOutlineParser();
+    NON_COPYABLE(FortranOutlineParser)
     void parseInput(const QCString &fileName,
                     const char *fileBuf,
                     const std::shared_ptr<Entry> &root,

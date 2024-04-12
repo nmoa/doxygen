@@ -32,6 +32,7 @@
 #include "docnode.h"
 #include "doctokenizer.h"
 #include "searchindex.h"
+#include "construct.h"
 
 using DefinitionStack = std::vector<const Definition *>;
 using DocNodeStack = std::stack<DocNodeVariant *>;
@@ -56,7 +57,7 @@ using DocStyleChangeStack = IterableStack<const DocNodeVariant *>;
  */
 struct DocParserContext
 {
-  const Definition *scope = 0;
+  const Definition *scope = nullptr;
   QCString context;
   bool inSeeBlock = false;
   bool xmlComment = false;
@@ -72,19 +73,20 @@ struct DocParserContext
   bool         hasReturnCommand = false;
   StringMultiSet retvalsFound;
   StringMultiSet paramsFound;
-  const MemberDef *  memberDef = 0;
+  const MemberDef *  memberDef = nullptr;
   bool         isExample = false;
   QCString     exampleName;
   QCString     searchUrl;
+  QCString     prefix;
 
   QCString     includeFileName;
   QCString     includeFileText;
-  uint32_t     includeFileOffset = 0;
-  uint32_t     includeFileLength = 0;
+  size_t       includeFileOffset = 0;
+  size_t       includeFileLength = 0;
   int          includeFileLine;
   bool         includeFileShowLineNo = false;
 
-  TokenInfo *token = 0;
+  TokenInfo *token = nullptr;
   int      lineNo = 0;
   bool     markdownSupport = false;
 };
@@ -92,7 +94,6 @@ struct DocParserContext
 class DocParser : public IDocParser
 {
   public:
-    ~DocParser();
     void pushContext();
     void popContext();
     void handleImg(DocNodeVariant *parent,DocNodeList &children,const HtmlAttribList &tagHtmlAttribs);
@@ -128,6 +129,7 @@ class DocParser : public IDocParser
     void handleParameterType(DocNodeVariant *parent,DocNodeList &children,const QCString &paramTypes);
     void handleInternalRef(DocNodeVariant *parent,DocNodeList &children);
     void handleAnchor(DocNodeVariant *parent,DocNodeList &children);
+    void handlePrefix(DocNodeVariant *parent,DocNodeList &children);
     void handleImage(DocNodeVariant *parent, DocNodeList &children);
     void readTextFileByName(const QCString &file,QCString &text);
 
@@ -143,18 +145,20 @@ class AutoNodeStack
   public:
     AutoNodeStack(DocParser *parser,DocNodeVariant* node)
       : m_parser(parser), m_node(node) { m_parser->context.nodeStack.push(node); }
-   ~AutoNodeStack() {
+   ~AutoNodeStack()
+    {
 #if defined(NDEBUG)
-     (void)m_node;
-     if (!m_parser->context.nodeStack.empty())
-     {
-       m_parser->context.nodeStack.pop(); // robust version that does not assert
-     }
+      (void)m_node;
+      if (!m_parser->context.nodeStack.empty())
+      {
+        m_parser->context.nodeStack.pop(); // robust version that does not assert
+      }
 #else
-     assert(m_parser->context.nodeStack.top()==m_node);
-     m_parser->context.nodeStack.pop(); // error checking version
+      assert(m_parser->context.nodeStack.top()==m_node);
+      m_parser->context.nodeStack.pop(); // error checking version
 #endif
-   }
+    }
+    NON_COPYABLE(AutoNodeStack)
 
   private:
    DocParser *m_parser;

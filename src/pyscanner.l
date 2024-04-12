@@ -54,6 +54,7 @@ typedef yyguts_t *yyscan_t;
 #include "markdown.h"
 #include "fileinfo.h"
 #include "debug.h"
+#include "stringutil.h"
 
 // Toggle for some debugging info
 //#define DBG_CTX(x) fprintf x
@@ -69,8 +70,8 @@ typedef yyguts_t *yyscan_t;
 struct pyscannerYY_state
 {
   CommentScanner          commentScanner;
-  OutlineParserInterface *thisParser = 0;
-  const char *            inputString = 0;
+  OutlineParserInterface *thisParser = nullptr;
+  const char *            inputString = nullptr;
   int                     inputPosition = 0;
   Protection              protection = Protection::Public;
   std::shared_ptr<Entry>  current_root;
@@ -91,7 +92,7 @@ struct pyscannerYY_state
   bool                    doubleQuote = FALSE;
   bool                    specialBlock = FALSE;
   int                     stringContext = 0;
-  TextStream *            copyString = 0;
+  TextStream *            copyString = nullptr;
   int                     indent = 0;
   int                     curIndent = 0;
   int                     commentIndent = 0;
@@ -432,8 +433,8 @@ ID        [a-z_A-Z%]+{IDSYM}*
                         }
                       }
     "="               {
-                        yyextra->current->doc.resize(0);
-                        yyextra->current->brief.resize(0);
+                        yyextra->current->doc.clear();
+                        yyextra->current->brief.clear();
                       }
     {IDENTIFIER}      {
                       }
@@ -581,8 +582,8 @@ ID        [a-z_A-Z%]+{IDSYM}*
                       }
     \n                { incLineNr(yyscanner); }
     "="               {
-                        yyextra->current->doc.resize(0);
-                        yyextra->current->brief.resize(0);
+                        yyextra->current->doc.clear();
+                        yyextra->current->brief.clear();
                         BEGIN( SearchSkipValue  );
                       }
     {IDENTIFIER}      // identifiers
@@ -1071,7 +1072,7 @@ ID        [a-z_A-Z%]+{IDSYM}*
                           yyextra->docBlockContext   = YY_START;
                           yyextra->docBlockInBody    = FALSE;
                           yyextra->docBlockJavaStyle = FALSE;
-                          yyextra->docBlock.resize(0);
+                          yyextra->docBlock.clear();
 
                           BEGIN(ClassInheritance);
                         }
@@ -1347,7 +1348,10 @@ ID        [a-z_A-Z%]+{IDSYM}*
 <VariableEnd>{
     \n                {
                         incLineNr(yyscanner);
-                        newVariable(yyscanner);
+                        if (!stripWhiteSpace(yyextra->current->initializer.str()).empty())
+                        {
+                          newVariable(yyscanner);
+                        }
                         BEGIN(Search);
                       }
     .                 {
@@ -1700,7 +1704,7 @@ static void initEntry(yyscan_t yyscanner)
   yyextra->current->mtype      = yyextra->mtype;
   yyextra->current->virt       = yyextra->virt;
   yyextra->current->isStatic   = yyextra->isStatic;
-  yyextra->current->lang       = SrcLangExt_Python;
+  yyextra->current->lang       = SrcLangExt::Python;
   yyextra->commentScanner.initGroupInfo(yyextra->current.get());
   yyextra->isStatic = FALSE;
 }
@@ -1760,7 +1764,7 @@ static void docVariable(yyscan_t yyscanner,const char *name)
   yyextra->current->fileName  = yyextra->fileName;
   yyextra->current->startLine = yyextra->yyLineNr;
   yyextra->current->bodyLine  = yyextra->yyLineNr;
-  yyextra->current->type.resize(0);
+  yyextra->current->type.clear();
   setProtection(yyscanner);
 }
 
@@ -1972,7 +1976,7 @@ static void initTriDoubleQuoteBlock(yyscan_t yyscanner)
   yyextra->docBlockInBody    = FALSE;
   yyextra->docBlockJavaStyle = TRUE;
   yyextra->docBlockSpecial   = yytext[strlen(yytext) - 1]=='!' || !Config_getBool(PYTHON_DOCSTRING);
-  yyextra->docBlock.resize(0);
+  yyextra->docBlock.clear();
   yyextra->commentIndent = yyextra->curIndent;
   yyextra->doubleQuote = TRUE;
   if (yyextra->docBlockSpecial)
@@ -1989,7 +1993,7 @@ static void initTriSingleQuoteBlock(yyscan_t yyscanner)
   yyextra->docBlockInBody    = FALSE;
   yyextra->docBlockJavaStyle = TRUE;
   yyextra->docBlockSpecial   = yytext[strlen(yytext) - 1]=='!' || !Config_getBool(PYTHON_DOCSTRING);
-  yyextra->docBlock.resize(0);
+  yyextra->docBlock.clear();
   yyextra->commentIndent = yyextra->curIndent;
   yyextra->doubleQuote = FALSE;
   if (yyextra->docBlockSpecial)
@@ -2006,7 +2010,7 @@ static void initSpecialBlock(yyscan_t yyscanner)
   yyextra->docBlockInBody    = FALSE;
   yyextra->docBlockJavaStyle = TRUE;
   yyextra->docBrief = TRUE;
-  yyextra->docBlock.resize(0);
+  yyextra->docBlock.clear();
   yyextra->commentIndent = yyextra->curIndent;
   startCommentBlock(yyscanner,FALSE);
 }
@@ -2018,13 +2022,13 @@ static void searchFoundDef(yyscan_t yyscanner)
   yyextra->current->startLine = yyextra->yyLineNr;
   yyextra->current->bodyLine  = yyextra->yyLineNr;
   yyextra->current->section = EntryType::makeFunction();
-  yyextra->current->lang = SrcLangExt_Python;
+  yyextra->current->lang = SrcLangExt::Python;
   yyextra->current->virt = Specifier::Normal;
   yyextra->current->isStatic = yyextra->isStatic;
   yyextra->current->mtype = yyextra->mtype = MethodTypes::Method;
-  yyextra->current->type.resize(0);
-  yyextra->current->name.resize(0);
-  yyextra->current->args.resize(0);
+  yyextra->current->type.clear();
+  yyextra->current->name.clear();
+  yyextra->current->args.clear();
   yyextra->current->argList.clear();
   yyextra->packageCommentAllowed = FALSE;
   yyextra->isStatic=FALSE;
@@ -2085,7 +2089,7 @@ static void parseCompounds(yyscan_t yyscanner,std::shared_ptr<Entry> rt)
       pyscannerYYlex(yyscanner) ;
       yyextra->lexInit=TRUE;
 
-      yyextra->programStr.resize(0);
+      yyextra->programStr.clear();
       ce->program.str(std::string());
 
       yyextra->commentScanner.leaveCompound(yyextra->fileName,yyextra->yyLineNr,name);
@@ -2166,7 +2170,7 @@ static void parseMain(yyscan_t yyscanner, const QCString &fileName,const char *f
 
   yyextra->commentScanner.leaveFile(yyextra->fileName,yyextra->yyLineNr);
 
-  yyextra->programStr.resize(0);
+  yyextra->programStr.clear();
   yyextra->current_root->program.str(std::string());
 
   parseCompounds(yyscanner, yyextra->current_root);

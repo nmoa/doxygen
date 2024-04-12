@@ -21,7 +21,6 @@ class XMLCodeGenerator
 {
   public:
     XMLCodeGenerator(TextStream *t);
-   ~XMLCodeGenerator();
 
     OutputType type() const { return OutputType::XML; }
 
@@ -53,7 +52,7 @@ class XMLCodeGenerator
     QCString m_external;
     int m_lineNumber;
     bool m_isMemberRef;
-    int m_col;
+    size_t m_col;
 
     bool m_insideCodeLine;
     bool m_normalHLNeedStartTag;

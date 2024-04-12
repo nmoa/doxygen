@@ -20,6 +20,7 @@
 
 #include <vector>
 #include <memory>
+#include <optional>
 
 #include <sys/types.h>
 
@@ -187,6 +188,9 @@ class MemberDef : public Definition
     virtual bool livesInsideEnum() const = 0;
     virtual bool isSliceLocal() const = 0;
     virtual bool isConstExpr() const = 0;
+    virtual bool isConstEval() const = 0;
+    virtual bool isConstInit() const = 0;
+    virtual bool isNoDiscard() const = 0;
     virtual int  numberOfFlowKeyWords() const = 0;
 
     // derived getters
@@ -229,6 +233,7 @@ class MemberDef : public Definition
     virtual const ArgumentList &declArgumentList() const = 0;
     virtual const ArgumentList &templateArguments() const = 0;
     virtual const ArgumentLists &definitionTemplateParameterLists() const = 0;
+    virtual std::optional<ArgumentList> formalTemplateArguments() const = 0;
 
     // member group related members
     virtual int getMemberGroupId() const = 0;
@@ -288,7 +293,7 @@ class MemberDef : public Definition
                const std::unique_ptr<ArgumentList> &actualArgs) const = 0;
     virtual void writeDeclaration(OutputList &ol,
                  const ClassDef *cd,const NamespaceDef *nd,const FileDef *fd,const GroupDef *gd,const ModuleDef *md,
-                 bool inGroup, int indentLevel=0, const ClassDef *inheritFrom=0,const QCString &inheritId=QCString()) const = 0;
+                 bool inGroup, int indentLevel=0, const ClassDef *inheritFrom=nullptr,const QCString &inheritId=QCString()) const = 0;
     virtual void writeEnumDeclaration(OutputList &typeDecl, const ClassDef *cd,
                 const NamespaceDef *nd,const FileDef *fd,const GroupDef *gd,const ModuleDef *mod) const = 0;
     virtual void writeLink(OutputList &ol,
@@ -328,7 +333,7 @@ class MemberDefMutable : public DefinitionMutable, public MemberDef
     virtual void setSectionList(const Definition *container,const MemberList *sl) = 0;
     virtual void setGroupDef(const GroupDef *gd,Grouping::GroupPri_t pri,
                      const QCString &fileName,int startLine,bool hasDocs,
-                     MemberDef *member=0) = 0;
+                     MemberDef *member=nullptr) = 0;
     virtual void setReadAccessor(const QCString &r) = 0;
     virtual void setWriteAccessor(const QCString &w) = 0;
     virtual void setTemplateSpecialization(bool b) = 0;
@@ -381,20 +386,14 @@ class MemberDefMutable : public DefinitionMutable, public MemberDef
     // anonymous scope members
     virtual void setFromAnonymousMember(MemberDef *m) = 0;
 
-    virtual void enableCallGraph(bool e) = 0;
-    virtual void mergeEnableCallGraph(bool other) = 0;
-    virtual void enableCallerGraph(bool e) = 0;
-    virtual void mergeEnableCallerGraph(bool other) = 0;
-
-    virtual void enableReferencedByRelation(bool e) = 0;
-    virtual void mergeEnableReferencedByRelation(bool other) = 0;
-    virtual void enableReferencesRelation(bool e) = 0;
-    virtual void mergeEnableReferencesRelation(bool other) = 0;
-
-    virtual void enableInlineSource(bool e) = 0;
-    virtual void mergeEnableInlineSource(bool other) = 0;
+    virtual void overrideCallGraph(bool e) = 0;
+    virtual void overrideCallerGraph(bool e) = 0;
+    virtual void overrideReferencedByRelation(bool e) = 0;
+    virtual void overrideReferencesRelation(bool e) = 0;
+    virtual void overrideInlineSource(bool e) = 0;
 
     virtual void setTemplateMaster(MemberDef *mt) = 0;
+    virtual void setFormalTemplateArguments(const ArgumentList &al) = 0;
     virtual void addListReference(Definition *d) = 0;
     virtual void setDocsForDefinition(bool b) = 0;
     virtual void setGroupAlias(const MemberDef *md) = 0;

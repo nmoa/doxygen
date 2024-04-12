@@ -14,10 +14,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(doxygen)
 
+option("ENABLE_CLANG_TIDY" "Enable static analysis with clang-tidy" OFF)
+
 option(build_wizard    "Build the GUI frontend for doxygen." OFF)
 option(build_app       "Example showing how to embed doxygen in an application." OFF)
 option(build_parse     "Parses source code and dumps the dependencies between the code elements." OFF)
-option(build_xmlparser "Automatically update the XML parser modules when updating the schema files." OFF)
 option(build_search    "Build external search tools (doxysearch and doxyindexer)" OFF)
 option(build_doc       "Build user manual (HTML and PDF)" OFF)
 option(build_doc_chm   "Build user manual (CHM)" OFF)
@@ -33,6 +34,7 @@ option(enable_console  "Enable that executables on Windows get the CONSOLE bit s
 option(enable_coverage "Enable coverage reporting for gcc/clang [development]" OFF)
 option(enable_tracing  "Enable tracing option in release builds [development]" OFF)
 option(enable_lex_debug "Enable debugging info for lexical scanners in release builds [development]" OFF)
+
 
 set(force_qt CACHE INTERNAL "Forces doxywizard to build using the specified major version, this can be Qt5 or Qt6")
 set_property(CACHE force_qt PROPERTY STRINGS OFF Qt6 Qt5)
@@ -83,6 +85,20 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
+
+if (ENABLE_CLANG_TIDY)
+    find_program("CLANGTIDY" "clang-tidy")
+    if (CLANGTIDY)
+       set(CMAKE_CXX_CLANG_TIDY clang-tidy;
+                                -header-filter=.;
+                                -checks=-*,cppcoreguidelines-special-member-functions)
+    else()
+        message(SEND_ERROR "clang-tidy requested but executable not found")
+    endif()
+endif()
+
+# produce compile_commands.json
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (CMAKE_SYSTEM MATCHES "Darwin")
     set(CMAKE_OSX_DEPLOYMENT_TARGET "${MACOS_VERSION_MIN}" CACHE STRING "Minimum OS X deployment version" FORCE)
@@ -223,12 +239,19 @@ if (build_doc_chm)
     endif ()
 endif ()
 
+# always parse doc directory to at least install man pages
+add_subdirectory(doc)
 if (build_doc)
     add_subdirectory(examples)
-    add_subdirectory(doc)
 endif ()
 
 add_subdirectory(doc_internal)
+
+find_package(generateDS)
+set(update_doxmlparser_dependency "")
+if (GENERATEDS_FOUND)
+  set(update_doxmlparser_dependency "update_doxmlparser_files")
+endif()
 add_subdirectory(addon)
 
 enable_testing()
