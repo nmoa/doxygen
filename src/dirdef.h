@@ -64,7 +64,6 @@ class UsedDir
 {
   public:
     UsedDir(const DirDef *dir);
-    virtual ~UsedDir();
 
     /**
      * Take up dependency between files.
@@ -149,7 +148,7 @@ class DirDef : public DefinitionMutable, public Definition
 
     // directory graph related members
     virtual bool hasDirectoryGraph() const = 0;
-    virtual void enableDirectoryGraph(bool e) = 0;
+    virtual void overrideDirectoryGraph(bool e) = 0;
 };
 
 // --- Cast functions

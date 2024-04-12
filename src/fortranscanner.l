@@ -165,14 +165,14 @@ struct fortranscannerYY_state
   int                      lineCountPrepass = 0;
   EntryList                subrCurrent;
   std::vector<CommentInPrepass>  comments;
-  YY_BUFFER_STATE *        includeStack = NULL;
+  YY_BUFFER_STATE *        includeStack = nullptr;
   int                      includeStackPtr = 0;
   int                      includeStackCnt = 0;
   QCString                 fileName;
-  int                      lineNr     = 1 ;
-  int                      colNr     = 0 ;
-  Entry                   *current_root = 0;
-  Entry                   *global_scope = 0;
+  int                      lineNr = 1 ;
+  int                      colNr  = 0 ;
+  Entry                   *current_root = nullptr;
+  Entry                   *global_scope = nullptr;
   std::shared_ptr<Entry>   global_root;
   std::shared_ptr<Entry>   file_root;
   std::shared_ptr<Entry>   last_entry;
@@ -181,9 +181,13 @@ struct fortranscannerYY_state
   ScanVar                  vtype       = V_IGNORE; // type of parsed variable
   EntryList                moduleProcedures; // list of all interfaces which contain unresolved module procedures
   QCString                 docBlock;
-  bool                     docBlockInBody = FALSE;
+  bool                     docBlockInBody = false;
   bool                     docBlockJavaStyle;
+  QCString                 docBlockName;
+  QCString                 blockString;
+  int                      blockLineNr=-1;
   QCString                 debugStr;
+  size_t                   fencedSize = 0;
 //  Argument                *parameter; // element of parameter list
   QCString                 argType;  // fortran type of an argument of a parameter list
   QCString                 argName;  // last identifier name in variable list
@@ -195,9 +199,9 @@ struct fortranscannerYY_state
   Protection               typeProtection;
   bool                     typeMode = false;
   InterfaceType            ifType = IF_NONE;
-  bool                     functionLine = FALSE;
+  bool                     functionLine = false;
   char                     stringStartSymbol; // single or double quote
-  bool                     parsingPrototype = FALSE; // see parsePrototype()
+  bool                     parsingPrototype = false; // see parsePrototype()
 
 //! Accumulated modifiers of current statement, eg variable declaration.
   SymbolModifiers          currentModifiers;
@@ -244,6 +248,8 @@ static void newLine(yyscan_t yyscanner);
 static void initEntry(yyscan_t yyscanner);
 
 static const char *stateToString(int state);
+static inline int computeIndent(const char *s);
+
 
 //-----------------------------------------------------------------------------
 #undef  YY_INPUT
@@ -276,6 +282,7 @@ B         [ \t]
 BS        [ \t]*
 BS_       [ \t]+
 BT_       ([ \t]+|[ \t]*"(")
+BN        [ \t\n\r]
 COMMA     {BS},{BS}
 ARGS_L0   ("("[^)]*")")
 ARGS_L1a  [^()]*"("[^)]*")"[^)]*
@@ -284,6 +291,10 @@ ARGS_L2   "("({ARGS_L0}|[^()]|{ARGS_L1a}|{ARGS_L1})*")"
 ARGS      {BS}({ARGS_L0}|{ARGS_L1}|{ARGS_L2})
 NOARGS    {BS}"\n"
 
+PRE       [pP][rR][eE]
+CODE      [cC][oO][dD][eE]
+
+COMM      "!"[!<>]
 NUM_TYPE  (complex|integer|logical|real)
 LOG_OPER  (\.and\.|\.eq\.|\.eqv\.|\.ge\.|\.gt\.|\.le\.|\.lt\.|\.ne\.|\.neqv\.|\.or\.|\.not\.)
 KIND      {ARGS}
@@ -349,6 +360,7 @@ FILEMASK  {VFILEMASK}|{HFILEMASK}
  /** comment parsing states */
 %x      DocBlock
 %x      DocBackLine
+%x      DocCopyBlock
 
 %x      BlockData
 
@@ -407,14 +419,14 @@ FILEMASK  {VFILEMASK}|{HFILEMASK}
                                               yy_push_state(Prepass,yyscanner);
                                             }
 
-                                            int length = yyextra->inputStringPrepass.length();
+                                            size_t length = yyextra->inputStringPrepass.length();
 
                                             // Only take input after initial ampersand
                                             yyextra->inputStringPrepass+=(const char*)(yytext+(indexStart+1));
                                             yyextra->lineCountPrepass ++;
 
                                             // cut off & and remove following comment if present
-                                            truncatePrepass(yyscanner,length+indexEnd-(indexStart+1));
+                                            truncatePrepass(yyscanner,static_cast<int>(length) + indexEnd - indexStart - 1);
                                           }
                                         }
 
@@ -433,6 +445,7 @@ FILEMASK  {VFILEMASK}|{HFILEMASK}
                                           }
                                           pop_state(yyscanner);
                                         }
+<String>[\x80-\xFF]*                    |
 <String>.                               { if (yy_top_state(yyscanner) == Initialization ||
                                               yy_top_state(yyscanner) == ArrayInitializer)
                                           {
@@ -473,6 +486,7 @@ FILEMASK  {VFILEMASK}|{HFILEMASK}
 <StrIgnore>.?/\n                        { pop_state(yyscanner); // comment ends with endline character
                                           DBG_CTX((stderr,"end comment %d %s\n",yyextra->lineNr,qPrint(yyextra->debugStr)));
                                         } // comment line ends
+<StrIgnore>[\x80-\xFF]*                 |
 <StrIgnore>.                            { yyextra->debugStr+=yytext; }
 
 
@@ -493,7 +507,7 @@ FILEMASK  {VFILEMASK}|{HFILEMASK}
                                           yyextra->current->fileName = yyextra->fileName;
                                           yyextra->current->section=EntryType::makeUsingDir();
                                           yyextra->current_root->moveToSubEntryAndRefresh(yyextra->current);
-                                          yyextra->current->lang = SrcLangExt_Fortran;
+                                          yyextra->current->lang = SrcLangExt::Fortran;
                                           pop_state(yyscanner);
                                         }
 <Use>{ID}/,                             {
@@ -509,7 +523,7 @@ FILEMASK  {VFILEMASK}|{HFILEMASK}
                                           yyextra->current->fileName = yyextra->fileName;
                                           yyextra->current->section=EntryType::makeUsingDecl();
                                           yyextra->current_root->moveToSubEntryAndRefresh(yyextra->current);
-                                          yyextra->current->lang = SrcLangExt_Fortran;
+                                          yyextra->current->lang = SrcLangExt::Fortran;
                                         }
 <Use,UseOnly>"\n"                       {
                                           yyextra->colNr -= 1;
@@ -799,7 +813,7 @@ private                                 {
 "\n"                                    {
                                           yyextra->currentModifiers = SymbolModifiers();
                                           newLine(yyscanner);
-                                          yyextra->docBlock.resize(0);
+                                          yyextra->docBlock.clear();
                                         }
 }
 
@@ -1018,8 +1032,8 @@ private                                 {
                                             if (parameter)
                                             {
                                               yyextra->vtype= V_PARAMETER;
-                                              if (!yyextra->argType.isNull()) parameter->type=yyextra->argType.stripWhiteSpace();
-                                              if (!yyextra->docBlock.isNull())
+                                              if (!yyextra->argType.isEmpty()) parameter->type=yyextra->argType.stripWhiteSpace();
+                                              if (!yyextra->docBlock.isEmpty())
                                               {
                                                 subrHandleCommentBlock(yyscanner,yyextra->docBlock,TRUE);
                                               }
@@ -1060,7 +1074,7 @@ private                                 {
                                                   }
                                                   if (yyextra->current_root->type.length() > 0) yyextra->current_root->type += " ";
                                                   yyextra->current_root->type += "function";
-                                                  if (!yyextra->docBlock.isNull())
+                                                  if (!yyextra->docBlock.isEmpty())
                                                   {
                                                     subrHandleCommentBlockResult(yyscanner,yyextra->docBlock,TRUE);
                                                   }
@@ -1080,8 +1094,8 @@ private                                 {
                                             // any accumulated doc for argument should be emptied,
                                             // because it is handled other way and this doc can be
                                             // unexpectedly passed to the next member.
-                                            yyextra->current->doc.resize(0);
-                                            yyextra->current->brief.resize(0);
+                                            yyextra->current->doc.clear();
+                                            yyextra->current->brief.clear();
                                           }
                                         }
 <FVariable>{ARGS}                        { /* dimension of the previous entry. */
@@ -1103,11 +1117,11 @@ private                                 {
 <FVariable>"\n"                          { yyextra->currentModifiers = SymbolModifiers();
                                           pop_state(yyscanner); // end variable declaration list
                                           newLine(yyscanner);
-                                          yyextra->docBlock.resize(0);
+                                          yyextra->docBlock.clear();
                                         }
 <FVariable>";".*"\n"                     { yyextra->currentModifiers = SymbolModifiers();
                                           pop_state(yyscanner); // end variable declaration list
-                                          yyextra->docBlock.resize(0);
+                                          yyextra->docBlock.clear();
                                           yyextra->inputStringSemi = " \n"+QCString(yytext+1);
                                           yyextra->lineNr--;
                                           pushBuffer(yyscanner,yyextra->inputStringSemi);
@@ -1188,8 +1202,8 @@ private                                 {
                                           yyextra->typeMode = true;
 
                                           yyextra->current->spec.setStruct(true);
-                                          yyextra->current->name.resize(0);
-                                          yyextra->current->args.resize(0);
+                                          yyextra->current->name.clear();
+                                          yyextra->current->args.clear();
                                           yyextra->current->name.sprintf("@%d",yyextra->anonCount++);
 
                                           yyextra->current->section = EntryType::makeEnum();
@@ -1332,7 +1346,7 @@ private                                 {
                                           {
                                             yyextra->current->docLine  = yyextra->lineNr;
                                             yyextra->docBlockJavaStyle = FALSE;
-                                            yyextra->docBlock.resize(0);
+                                            yyextra->docBlock.clear();
                                             yyextra->docBlockJavaStyle = Config_getBool(JAVADOC_AUTOBRIEF);
                                             startCommentBlock(yyscanner,TRUE);
                                             yy_push_state(DocBackLine,yyscanner);
@@ -1391,7 +1405,7 @@ private                                 {
                                             subrHandleCommentBlockResult(yyscanner,yyextra->docBlock,TRUE);
                                           }
                                           pop_state(yyscanner);
-                                          yyextra->docBlock.resize(0);
+                                          yyextra->docBlock.clear();
                                         }
 
 <Start,SubprogBody,ModuleBody,TypedefBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains,TypedefBodyContains,FEnum>"!>"  {
@@ -1399,23 +1413,47 @@ private                                 {
                                           yyextra->current->docLine  = yyextra->lineNr;
                                           yyextra->docBlockJavaStyle = FALSE;
                                           if (YY_START==SubprogBody) yyextra->docBlockInBody = TRUE;
-                                          yyextra->docBlock.resize(0);
+                                          yyextra->docBlock.clear();
                                           yyextra->docBlockJavaStyle = Config_getBool(JAVADOC_AUTOBRIEF);
                                           startCommentBlock(yyscanner,TRUE);
                                           BEGIN(DocBlock);
                                           //cout << "start DocBlock " << endl;
                                         }
 
+
+<DocBlock>({CMD}{CMD}){ID}/[^a-z_A-Z0-9] { // escaped command
+                                          yyextra->docBlock += yytext;
+                                        }
+<DocBlock>{CMD}("f$"|"f["|"f{"|"f(")    {
+                                          yyextra->docBlock += yytext;
+                                          yyextra->docBlockName=&yytext[1];
+                                          if (yyextra->docBlockName.at(1)=='[')
+                                          {
+                                            yyextra->docBlockName.at(1)=']';
+                                          }
+                                          if (yyextra->docBlockName.at(1)=='{')
+                                          {
+                                            yyextra->docBlockName.at(1)='}';
+                                          }
+                                          if (yyextra->docBlockName.at(1)=='(')
+                                          {
+                                            yyextra->docBlockName.at(1)=')';
+                                          }
+                                          yyextra->fencedSize=0;
+                                          yyextra->blockString=yytext;
+                                          yyextra->blockLineNr=yyextra->lineNr;
+                                          BEGIN(DocCopyBlock);
+                                        }
 <DocBlock>{CMD}"ifile"{B}+"\""[^\n\"]+"\"" {
                                           yyextra->fileName = &yytext[6];
                                           yyextra->fileName = yyextra->fileName.stripWhiteSpace();
                                           yyextra->fileName = yyextra->fileName.mid(1,yyextra->fileName.length()-2);
-                                          yyextra->docBlock+=yytext;
+                                          yyextra->docBlock += yytext;
                                         }
 <DocBlock>{CMD}"ifile"{B}+{FILEMASK}    {
                                           yyextra->fileName = &yytext[6];
                                           yyextra->fileName = yyextra->fileName.stripWhiteSpace();
-                                          yyextra->docBlock+=yytext;
+                                          yyextra->docBlock += yytext;
                                         }
 <DocBlock>{CMD}"iline"{LINENR}/[\n\.]   |
 <DocBlock>{CMD}"iline"{LINENR}{B}       {
@@ -1429,20 +1467,66 @@ private                                 {
                                           {
                                             yyextra->lineNr = nr;
                                           }
-                                          yyextra->docBlock+=yytext;
+                                          yyextra->docBlock += yytext;
                                         }
-<DocBlock>({CMD}{CMD}){ID}/[^a-z_A-Z0-9] { // escaped command
-                                          yyextra->docBlock+=yytext;
+<DocBlock>{B}*"<"{PRE}">"               {
+                                          yyextra->docBlock += yytext;
+                                          yyextra->docBlockName="<pre>";
+                                          yyextra->fencedSize=0;
+                                          yyextra->blockString=yytext;
+                                          yyextra->blockLineNr=yyextra->lineNr;
+                                          BEGIN(DocCopyBlock);
                                         }
-<DocBlock>[^\\@\n]*                     { // contents of yyextra->current comment line
-                                          yyextra->docBlock+=yytext;
+<DocBlock>{B}*"<"<CODE>">"              {
+                                          yyextra->docBlock += yytext;
+                                          yyextra->docBlockName="<code>";
+                                          yyextra->fencedSize=0;
+                                          yyextra->blockString=yytext;
+                                          yyextra->blockLineNr=yyextra->lineNr;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>{CMD}"startuml"/[^a-z_A-Z0-9\-]     { // verbatim command
+                                          yyextra->docBlock += yytext;
+                                          yyextra->docBlockName="uml";
+                                          yyextra->fencedSize=0;
+                                          yyextra->blockString=yytext;
+                                          yyextra->blockLineNr=yyextra->lineNr;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>{CMD}("verbatim"|"iliteral"|"latexonly"|"htmlonly"|"xmlonly"|"manonly"|"rtfonly"|"docbookonly"|"dot"|"msc"|"code")/[^a-z_A-Z0-9\-]     { // verbatim command
+                                          yyextra->docBlock += yytext;
+                                          yyextra->docBlockName=&yytext[1];
+                                          yyextra->fencedSize=0;
+                                          yyextra->blockString=yytext;
+                                          yyextra->blockLineNr=yyextra->lineNr;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>"~~~"[~]*                     {
+                                          QCString pat = yytext;
+                                          yyextra->docBlock += pat;
+                                          yyextra->docBlockName="~~~";
+                                          yyextra->fencedSize=pat.length();
+                                          yyextra->blockString=yytext;
+                                          yyextra->blockLineNr=yyextra->lineNr;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>"```"[`]*/(".")?[a-zA-Z0-9#_-]+ |
+<DocBlock>"```"[`]*/"{"[^}]+"}" |
+<DocBlock>"```"[`]*                     {
+                                          QCString pat = yytext;
+                                          yyextra->docBlock += pat;
+                                          yyextra->docBlockName="```";
+                                          yyextra->fencedSize=pat.length();
+                                          yyextra->blockString=yytext;
+                                          yyextra->blockLineNr=yyextra->lineNr;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>[^@*`~\/\\\n]+                { // any character that isn't special
+                                          yyextra->docBlock += yytext;
                                         }
 <DocBlock>"\n"{BS}"!"(">"|"!"+)         { // comment block (next line is also comment line)
                                           yyextra->docBlock+="\n"; // \n is necessary for lists
                                           newLine(yyscanner);
-                                        }
-<DocBlock>{CMD}                             {
-                                          yyextra->docBlock+=yytext;
                                         }
 <DocBlock>"\n"                          { // comment block ends at the end of this line
                                           //cout <<"3=========> comment block : "<< yyextra->docBlock << endl;
@@ -1450,6 +1534,96 @@ private                                 {
                                           unput(*yytext);
                                           handleCommentBlock(yyscanner,yyextra->docBlock,TRUE);
                                           pop_state(yyscanner);
+                                        }
+<DocBlock>.                             { // command block
+                                          yyextra->docBlock += *yytext;
+                                        }
+
+ /* ---- Copy verbatim sections ------ */
+
+<DocCopyBlock>"</"{PRE}">"              { // end of a <pre> block
+                                          yyextra->docBlock += yytext;
+                                          if (yyextra->docBlockName=="<pre>")
+                                          {
+                                            yyextra->docBlockName="";
+                                            yyextra->blockString.clear();
+                                            yyextra->blockLineNr=-1;
+                                            BEGIN(DocBlock);
+                                          }
+                                        }
+<DocCopyBlock>"</"{CODE}">"             { // end of a <code> block
+                                          yyextra->docBlock += yytext;
+                                          if (yyextra->docBlockName=="<code>")
+                                          {
+                                            yyextra->docBlockName="";
+                                            yyextra->blockString.clear();
+                                            yyextra->blockLineNr=-1;
+                                            BEGIN(DocBlock);
+                                          }
+                                        }
+<DocCopyBlock>[\\@]("f$"|"f]"|"f}"|"f)")     {
+                                          yyextra->docBlock += yytext;
+                                          if (yyextra->docBlockName==&yytext[1])
+                                          {
+                                            yyextra->docBlockName="";
+                                            yyextra->blockString.clear();
+                                            yyextra->blockLineNr=-1;
+                                            BEGIN(DocBlock);
+                                          }
+                                        }
+<DocCopyBlock>[\\@]("endverbatim"|"endiliteral"|"endlatexonly"|"endhtmlonly"|"endxmlonly"|"enddocbookonly"|"endmanonly"|"endrtfonly"|"enddot"|"endmsc"|"enduml"|"endcode")/[^a-z_A-Z0-9] { // end of verbatim block
+                                          yyextra->docBlock += yytext;
+                                          if (&yytext[4]==yyextra->docBlockName)
+                                          {
+                                            yyextra->docBlockName="";
+                                            yyextra->blockString.clear();
+                                            yyextra->blockLineNr=-1;
+                                            BEGIN(DocBlock);
+                                          }
+                                        }
+
+<DocCopyBlock>^{B}*{COMM}               { // start of a comment line
+                                          if (yyextra->docBlockName=="verbatim")
+                                          {
+                                            REJECT;
+                                          }
+                                          else
+                                          {
+                                            QCString indent; 
+                                            indent.fill(' ',computeIndent(yytext) + 2);
+                                            yyextra->docBlock += indent;
+                                          }
+                                        }
+<DocCopyBlock>"~~~"[~]*                 {
+                                          QCString pat = yytext;
+                                          yyextra->docBlock += pat;
+                                          if (yyextra->docBlockName == "~~~" && yyextra->fencedSize==pat.length())
+                                          {
+                                            yyextra->blockString.clear();
+                                            yyextra->blockLineNr=-1;
+                                            BEGIN(DocBlock);
+                                          }
+                                        }
+<DocCopyBlock>"```"[`]*                 {
+                                          QCString pat = yytext;
+                                          yyextra->docBlock += pat;
+                                          if (yyextra->docBlockName == "```" && yyextra->fencedSize==pat.length())
+                                          {
+                                            yyextra->blockString.clear();
+                                            yyextra->blockLineNr=-1;
+                                            BEGIN(DocBlock);
+                                          }
+                                        }
+
+<DocCopyBlock>[^\<@/\*\]!`~"\$\\\n]+      { // any character that is not special
+                                          yyextra->docBlock += yytext;
+                                        }
+<DocCopyBlock>\n                        { // newline
+                                          yyextra->docBlock += *yytext;
+                                          newLine(yyscanner);
+                                        }
+<DocCopyBlock>.                         { // any other character
+                                          yyextra->docBlock += *yytext;
                                         }
 
  /*-----Prototype parsing -------------------------------------------------------------------------*/
@@ -1520,6 +1694,21 @@ static void newLine(yyscan_t yyscanner)
   yyextra->lineNr+=yyextra->lineCountPrepass;
   yyextra->lineCountPrepass=0;
   yyextra->comments.clear();
+}
+
+static inline int computeIndent(const char *s)
+{
+  int col=0;
+  int tabSize=Config_getInt(TAB_SIZE);
+  const char *p=s;
+  char c;
+  while ((c=*p++))
+  {
+    if (c=='\t') col+=tabSize-(col%tabSize);
+    else if (c=='\n') col=0;
+    else col++;
+  }
+  return col;
 }
 
 static const CommentInPrepass *locatePrepassComment(yyscan_t yyscanner,int from, int to)
@@ -1643,13 +1832,13 @@ static int getAmpOrExclAtTheEnd(const char *buf, int length, char ch)
 void truncatePrepass(yyscan_t yyscanner,int index)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  int length = yyextra->inputStringPrepass.length();
-  for (int i=index+1; i<length; i++) {
+  size_t length = yyextra->inputStringPrepass.length();
+  for (size_t i=index+1; i<length; i++) {
     if (yyextra->inputStringPrepass[i]=='!' && i<length-1 && yyextra->inputStringPrepass[i+1]=='<') { // save comment
       yyextra->comments.emplace_back(index, yyextra->inputStringPrepass.right(length-i-2));
     }
   }
-  yyextra->inputStringPrepass.truncate(index);
+  yyextra->inputStringPrepass.resize(index);
 }
 
 /* This function assumes that contents has at least size=length+1 */
@@ -2018,7 +2207,7 @@ static QCString extractFromParens(const QCString &name)
   int end = extracted.findRev(")");
   if (end != -1)
   {
-    int length = extracted.length();
+    size_t length = extracted.length();
     extracted.remove(end, length);
   }
   extracted = extracted.stripWhiteSpace();
@@ -2055,7 +2244,7 @@ SymbolModifiers& SymbolModifiers::operator|=(const SymbolModifiers &mdfs)
   if (mdfs.protection!=NONE_P) protection = mdfs.protection;
   if (mdfs.direction!=NONE_D) direction = mdfs.direction;
   optional |= mdfs.optional;
-  if (!mdfs.dimension.isNull()) dimension = mdfs.dimension;
+  if (!mdfs.dimension.isEmpty()) dimension = mdfs.dimension;
   allocatable |= mdfs.allocatable;
   external |= mdfs.external;
   intrinsic |= mdfs.intrinsic;
@@ -2185,7 +2374,7 @@ SymbolModifiers& SymbolModifiers::operator|=(QCString mdfStringArg)
 //ostream& operator<<(ostream& out, const SymbolModifiers& mdfs)
 //{
 //  out<<mdfs.protection<<", "<<mdfs.direction<<", "<<mdfs.optional<<
-//    ", "<<(mdfs.dimension.isNull() ? "" : mdfs.dimension.latin1())<<
+//    ", "<<(mdfs.dimension.isEmpty() ? "" : mdfs.dimension.latin1())<<
 //    ", "<<mdfs.allocatable<<", "<<mdfs.external<<", "<<mdfs.intrinsic;
 //
 //  return out;
@@ -2211,7 +2400,7 @@ static Argument *findArgument(Entry* subprog, QCString name, bool byTypeName = F
 /*! Apply yyextra->modifiers stored in \a mdfs to the \a typeName string. */
 static QCString applyModifiers(QCString typeName, const SymbolModifiers& mdfs)
 {
-  if (!mdfs.dimension.isNull())
+  if (!mdfs.dimension.isEmpty())
   {
     if (!typeName.isEmpty()) typeName += ", ";
     typeName += mdfs.dimension;
@@ -2687,7 +2876,7 @@ static void initEntry(yyscan_t yyscanner)
   yyextra->current->mtype      = MethodTypes::Method;
   yyextra->current->virt       = Specifier::Normal;
   yyextra->current->isStatic   = false;
-  yyextra->current->lang       = SrcLangExt_Fortran;
+  yyextra->current->lang       = SrcLangExt::Fortran;
   yyextra->commentScanner.initGroupInfo(yyextra->current.get());
 }
 
@@ -2755,9 +2944,9 @@ static void addSubprogram(yyscan_t yyscanner,const QCString &text)
   yyextra->current->fileName  = yyextra->fileName;
   yyextra->current->bodyLine  = yyextra->lineNr; // used for source reference start of body of routine
   yyextra->current->startLine  = yyextra->lineNr; // used for source reference start of definition
-  yyextra->current->args.resize(0);
+  yyextra->current->args.clear();
   yyextra->current->argList.clear();
-  yyextra->docBlock.resize(0);
+  yyextra->docBlock.clear();
 }
 
 /*! Adds interface to the root entry.
@@ -2815,8 +3004,8 @@ static void addInterface(yyscan_t yyscanner,QCString name, InterfaceType type)
 static Argument *getParameter(yyscan_t yyscanner,const QCString &name)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  // std::cout<<"addFortranParameter(): "<<name<<" DOCS:"<<(docs.isNull()?QCString("null"):docs)<<"\n";
-  Argument *ret = 0;
+  // std::cout<<"addFortranParameter(): "<<name<<" DOCS:"<<(docs.isEmpty()?QCString("null"):docs)<<"\n";
+  Argument *ret = nullptr;
   for (Argument &a:yyextra->current_root->argList)
   {
     if (a.name.lower()==name.lower())
@@ -3082,12 +3271,12 @@ static void parseMain(yyscan_t yyscanner, const QCString &fileName,const char *f
 
   // add entry for the file
   yyextra->current          = std::make_shared<Entry>();
-  yyextra->current->lang    = SrcLangExt_Fortran;
+  yyextra->current->lang    = SrcLangExt::Fortran;
   yyextra->current->name    = yyextra->fileName;
   yyextra->current->section = EntryType::makeSource();
   yyextra->file_root        = yyextra->current;
   yyextra->current_root->moveToSubEntryAndRefresh(yyextra->current);
-  yyextra->current->lang    = SrcLangExt_Fortran;
+  yyextra->current->lang    = SrcLangExt::Fortran;
 
   fortranscannerYYrestart( 0, yyscanner );
   {
@@ -3184,7 +3373,16 @@ static void scanner_abort(yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   fprintf(stderr,"********************************************************************\n");
-  fprintf(stderr,"Error in file %s line: %d, state: %d(%s)\n",qPrint(yyextra->fileName),yyextra->lineNr,YY_START,stateToString(YY_START));
+  if (yyextra->blockLineNr == -1)
+  {
+    fprintf(stderr,"Error in file %s line: %d, state: %d(%s)\n",
+      qPrint(yyextra->fileName),yyextra->lineNr,YY_START,stateToString(YY_START));
+  }
+  else
+  {
+    fprintf(stderr,"Error in file %s line: %d, state: %d(%s), starting command: '%s' probable line reference: %d\n",
+      qPrint(yyextra->fileName),yyextra->lineNr,YY_START,stateToString(YY_START),qPrint(yyextra->blockString),yyextra->blockLineNr);
+  }
   fprintf(stderr,"********************************************************************\n");
 
   bool start=FALSE;

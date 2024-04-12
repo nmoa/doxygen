@@ -53,12 +53,6 @@ void SearchTerm::makeTitle()
   else if (std::holds_alternative<const SectionInfo *>(info))
   {
     title = std::get<const SectionInfo *>(info)->title();
-
-    // Capitalizing the word as this is not a code entity
-    std::string letter = getUTF8CharAt(word.str(),0);
-    // Uppercase letter could have different size
-    word.remove(0, letter.size());
-    word.prepend(convertUTF8ToUpper(letter));
   }
   else
   {
@@ -116,29 +110,21 @@ static void splitSearchTokens(QCString &title,IntVector &indices)
     }
   }
   if (di>0 && title.at(di-1)==' ') di--; // strip trailing whitespace
-  title.resize(di+1);
+  title.resize(di);
 
   // create a list of start positions within title for
   // each unique word in order of appearance
   int p=0,i;
-  StringSet wordsFound;
   while ((i=title.find(' ',p))!=-1)
   {
     std::string word = title.mid(p,i-p).str();
-    if (wordsFound.find(word)==wordsFound.end())
-    {
-      indices.push_back(p);
-      wordsFound.insert(word);
-    }
+    indices.push_back(p);
     p = i+1;
   }
   if (p<static_cast<int>(title.length()))
   {
     std::string word = title.mid(p).str();
-    if (wordsFound.find(word)==wordsFound.end())
-    {
-      indices.push_back(p);
-    }
+    indices.push_back(p);
   }
 }
 
@@ -204,13 +190,13 @@ static void addMemberToSearchIndex(const MemberDef *md)
 {
   bool hideFriendCompounds = Config_getBool(HIDE_FRIEND_COMPOUNDS);
   bool isLinkable = md->isLinkable();
-  const ClassDef *cd=0;
-  const NamespaceDef *nd=0;
-  const FileDef *fd=0;
-  const GroupDef *gd=0;
+  const ClassDef *cd=nullptr;
+  const NamespaceDef *nd=nullptr;
+  const FileDef *fd=nullptr;
+  const GroupDef *gd=nullptr;
   if (isLinkable &&
       (
-       ((cd=md->getClassDef()) && cd->isLinkable() && cd->templateMaster()==0) ||
+       ((cd=md->getClassDef()) && cd->isLinkable() && cd->templateMaster()==nullptr) ||
        ((gd=md->getGroupDef()) && gd->isLinkable())
       )
      )
@@ -496,7 +482,7 @@ void createJavaScriptSearchIndex()
       //
       // `std::stable_sort` is used here due to reproducibility issues
       // on key collisions
-      // https://github.com/doxygen/doxygen/issues/10445 
+      // https://github.com/doxygen/doxygen/issues/10445
       std::stable_sort(symList.begin(),
                 symList.end(),
                 [](const auto &t1,const auto &t2)
@@ -614,7 +600,7 @@ static void writeJavasScriptSearchDataPage(const QCString &baseName,const QCStri
 
   int childCount=0;
   QCString lastWord;
-  const Definition *prevScope = 0;
+  const Definition *prevScope = nullptr;
   for (auto it = list.begin(); it!=list.end();)
   {
     const SearchTerm &term = *it;
@@ -650,7 +636,7 @@ static void writeJavasScriptSearchDataPage(const QCString &baseName,const QCStri
       }
       ti << "',[";
       childCount=0;
-      prevScope=0;
+      prevScope=nullptr;
     }
 
     if (childCount>0)
@@ -686,7 +672,7 @@ static void writeJavasScriptSearchDataPage(const QCString &baseName,const QCStri
       else if (md)
       {
         const FileDef *fd = md->getBodyDef();
-        if (fd==0) fd = md->getFileDef();
+        if (fd==nullptr) fd = md->getFileDef();
         if (fd)
         {
           ti << "'" << convertToXML(fd->localName()) << "'";
@@ -700,7 +686,7 @@ static void writeJavasScriptSearchDataPage(const QCString &baseName,const QCStri
     else // multiple entries with the same name
     {
       bool found=FALSE;
-      bool overloadedFunction = ((prevScope!=0 && scope==prevScope) || (scope && scope==nextScope)) &&
+      bool overloadedFunction = ((prevScope!=nullptr && scope==prevScope) || (scope && scope==nextScope)) &&
                                  md && md->isCallable();
       QCString prefix;
       if (md) prefix=convertToXML(md->localName());
@@ -724,12 +710,12 @@ static void writeJavasScriptSearchDataPage(const QCString &baseName,const QCStri
           case Definition::TypePage:      name = convertToXML(filterTitle(toPageDef(d)->title()));                found=true; break;
           case Definition::TypeGroup:     name = convertToXML(filterTitle(toGroupDef(d)->groupTitle()));          found=true; break;
           default:
-            if (scope==0 || scope==Doxygen::globalScope) // in global scope
+            if (scope==nullptr || scope==Doxygen::globalScope) // in global scope
             {
               if (md)
               {
                 const FileDef *fd = md->getBodyDef();
-                if (fd==0) fd = md->resolveAlias()->getFileDef();
+                if (fd==nullptr) fd = md->resolveAlias()->getFileDef();
                 if (fd)
                 {
                   if (!prefix.isEmpty()) prefix+=":&#160;";

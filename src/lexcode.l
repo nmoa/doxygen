@@ -76,7 +76,7 @@ struct lexcodeYY_state
      bool          insideCode = FALSE;
      QCString      delimiter;
      QCString      docBlockName;
-     uint32_t      fencedSize = 0;
+     size_t        fencedSize = 0;
      bool          nestedComment = false;
 
      bool          exampleBlock;
@@ -374,7 +374,7 @@ NONLopt [^\n]*
                            {
                              startFontClass(yyscanner,"stringliteral");
                              codifyLines(yyscanner,yyextra->rulesPatternBuffer.data());
-                             yyextra->rulesPatternBuffer.resize(0);
+                             yyextra->rulesPatternBuffer.clear();
                              endFontClass(yyscanner);
                            }
                          }
@@ -429,7 +429,7 @@ NONLopt [^\n]*
                            {
                              startFontClass(yyscanner,"stringliteral");
                              codifyLines(yyscanner,yyextra->rulesPatternBuffer);
-                             yyextra->rulesPatternBuffer.resize(0);
+                             yyextra->rulesPatternBuffer.clear();
                              endFontClass(yyscanner);
                            }
                            codifyLines(yyscanner,yytext);
@@ -449,7 +449,7 @@ NONLopt [^\n]*
                            {
                              startFontClass(yyscanner,"stringliteral");
                              codifyLines(yyscanner,yyextra->rulesPatternBuffer);
-                             yyextra->rulesPatternBuffer.resize(0);
+                             yyextra->rulesPatternBuffer.clear();
                              endFontClass(yyscanner);
                            }
                            yyextra->startCCodeLine=yyextra->yyLineNr;
@@ -464,7 +464,7 @@ NONLopt [^\n]*
                            {
                              startFontClass(yyscanner,"stringliteral");
                              codifyLines(yyscanner,yyextra->rulesPatternBuffer);
-                             yyextra->rulesPatternBuffer.resize(0);
+                             yyextra->rulesPatternBuffer.clear();
                              endFontClass(yyscanner);
                            }
                            yyextra->CCodeBuffer += yytext;
@@ -1064,13 +1064,10 @@ static void codifyLines(yyscan_t yyscanner,const QCString &text)
     if (c=='\n')
     {
       yyextra->yyLineNr++;
-      int l = (int)(p-sp-1);
-      char *tmp = (char*)malloc(l+1);
-      memcpy(tmp,sp,l);
-      tmp[l]='\0';
-      yyextra->code->codify(tmp);
+      size_t l = static_cast<size_t>(p-sp-1);
+      std::string tmp(sp,l);
+      yyextra->code->codify(tmp.c_str());
       nextCodeLine(yyscanner);
-      free(tmp);
     }
     else
     {
@@ -1149,7 +1146,7 @@ static void handleCCode(yyscan_t yyscanner)
   yyextra->ccodeParser.parseCode(*yyextra->code,
                yyextra->classScope,
                yyextra->CCodeBuffer,
-               SrcLangExt_Cpp,
+               SrcLangExt::Cpp,
                yyextra->exampleBlock,
                yyextra->exampleName,
                yyextra->sourceFileDef,
@@ -1161,7 +1158,7 @@ static void handleCCode(yyscan_t yyscanner)
                yyextra->searchCtx,
                yyextra->collectXRefs
               );
-  yyextra->CCodeBuffer.resize(0);
+  yyextra->CCodeBuffer.clear();
   yyextra->insideCodeLine = yyextra->ccodeParser.insideCodeLine();
   yyextra->yyLineNr--;
   codifyLines(yyscanner,"\n");

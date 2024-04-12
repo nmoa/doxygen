@@ -69,8 +69,8 @@ class HtmlHelpRecoder
     QCString recode(const QCString &s)
     {
       size_t iSize     = s.length();
-      size_t oSize     = iSize*4+1;
-      QCString output(oSize);
+      size_t oSize     = iSize*4;
+      QCString output(oSize, QCString::ExplicitSize);
       size_t iLeft     = iSize;
       size_t oLeft     = oSize;
       const char *iPtr = s.data();
@@ -78,7 +78,7 @@ class HtmlHelpRecoder
       if (!portable_iconv(m_fromUtf8,&iPtr,&iLeft,&oPtr,&oLeft))
       {
         oSize -= oLeft;
-        output.resize(oSize+1);
+        output.resize(oSize);
         output.at(oSize)='\0';
         return output;
       }
@@ -178,8 +178,7 @@ static QCString field2URL(const IndexField *f,bool checkReversed)
   addHtmlExtensionIfMissing(result);
   if (!f->anchor.isEmpty() && (!checkReversed || f->reversed))
   {
-    // HTML Help needs colons in link anchors to be escaped in the .hhk file.
-    result+="#"+substitute(f->anchor,":","%3A");
+    result+="#"+f->anchor;
   }
   return result;
 }
@@ -424,6 +423,10 @@ void HtmlHelp::Private::createProjectFile()
     {
       t << "Compiled file=" << Config_getString(CHM_FILE) << "\n";
     }
+    else
+    {
+      t << "Compiled file=index.chm\n";
+    }
     t << "Compatibility=1.1\n"
          "Full-text search=Yes\n";
     if (ctsItemPresent) t << "Contents file=" + hhcFileName + "\n";
@@ -603,14 +606,14 @@ void HtmlHelp::addIndexItem(const Definition *context,const MemberDef *md,
   if (md)
   {
     bool separateMemberPages = Config_getBool(SEPARATE_MEMBER_PAGES);
-    if (context==0) // global member
+    if (context==nullptr) // global member
     {
       if (md->getGroupDef())
         context = md->getGroupDef();
       else if (md->getFileDef())
         context = md->getFileDef();
     }
-    if (context==0) return; // should not happen
+    if (context==nullptr) return; // should not happen
 
     QCString cfname  = md->getOutputFileBase();
     QCString argStr  = md->argsString();

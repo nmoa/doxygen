@@ -57,8 +57,8 @@ struct LookupInfo
   LookupInfo() = default;
   LookupInfo(const Definition *d,const MemberDef *td,const QCString &ts,const QCString &rt)
     : definition(d), typeDef(td), templSpec(ts), resolvedType(rt) {}
-  const Definition  *definition = 0;
-  const MemberDef *typeDef = 0;
+  const Definition  *definition = nullptr;
+  const MemberDef *typeDef = nullptr;
   QCString   templSpec;
   QCString   resolvedType;
 };
@@ -92,7 +92,7 @@ class Doxygen
     static std::unique_ptr<PageDef>  mainPage;
     static FileNameLinkedMap        *includeNameLinkedMap;
     static FileNameLinkedMap        *exampleNameLinkedMap;
-    static StringSet                 inputPaths;
+    static StringUnorderedSet        inputPaths;
     static FileNameLinkedMap        *inputNameLinkedMap;
     static FileNameLinkedMap        *imageNameLinkedMap;
     static FileNameLinkedMap        *dotFileNameLinkedMap;
@@ -104,7 +104,7 @@ class Doxygen
     static GroupLinkedMap           *groupLinkedMap;
     static NamespaceLinkedMap       *namespaceLinkedMap;
     static StringMap                 tagDestinationMap;
-    static StringSet                 tagFileSet;
+    static StringUnorderedSet        tagFileSet;
     static MemberGroupInfoMap        memberGroupInfoMap;
     static StringUnorderedSet        expandAsDefinedSet;
     static std::unique_ptr<NamespaceDef> globalNamespaceDef;
@@ -150,8 +150,8 @@ void readFileOrDirectory(const QCString &s,
                         StringUnorderedSet *resultSet,
                         bool recursive,
                         bool errorIfNotExist=TRUE,
-                        StringUnorderedSet *killSet = 0,
-                        StringSet *paths = 0
+                        StringUnorderedSet *killSet = nullptr,
+                        StringUnorderedSet *paths = nullptr
                        );
 
 #endif

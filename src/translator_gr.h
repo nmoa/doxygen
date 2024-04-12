@@ -20,7 +20,7 @@
  *               Harry Kalogirou <no email>
  *
  * 01 Jan 2009 : Greek maintenance by
- *               Paul Gessos <gessos.paul@gmail.com>
+ *               Pavlos Gkesos <gessos.paul@gmail.com>
  *
  *
  * Δουλεύω με C, C++, Java, PHP και Python. Άλλες γλώσσες (π.χ. VHDL) μου είναι
@@ -42,13 +42,15 @@
 	concept -> έννοια
 	signal -> σήμα
 	instantiation -> ενσάρκωση
+	definition -> ορισμός
+ 	declaration -> δήλωση
 */
 
 
 #ifndef TRANSLATOR_GR_H
 #define TRANSLATOR_GR_H
 
-class TranslatorGreek : public TranslatorAdapter_1_9_6
+class TranslatorGreek : public TranslatorAdapter_1_11_0
 {
   public:
 
@@ -72,16 +74,6 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
     QCString trISOLang() override
     {
       return "el";
-    }
-
-    QCString latexFontenc() override
-    {
-      return "";
-    }
-    QCString latexFont() override
-    {
-      return "\\setmainfont{Libertinus Sans}\n"
-             "\\setmonofont{Courier New}\n";
     }
 
     // --- Language translation methods -------------------
@@ -348,8 +340,8 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
 
 
     /*! This is used in HTML as the title of index.html. */
-    QCString trDocumentation() override
-    { return "Τεκμηρίωση"; }
+    QCString trDocumentation(const QCString &projName) override
+    { return (!projName.isEmpty()?projName + " " : "") + "Τεκμηρίωση"; }
 
     /*! This is used in LaTeX as the title of the chapter with the
      * index of all groups.
@@ -1171,17 +1163,6 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
       return "1253";
     }
 
-    QCString latexCommandName() override
-    {
-      QCString latex_command = Config_getString(LATEX_CMD_NAME);
-      if (latex_command.isEmpty()) latex_command = "latex";
-      if (Config_getBool(USE_PDFLATEX))
-      {
-        if (latex_command == "latex") latex_command = "xelatex";
-      }
-      return latex_command;
-    }
-
     /*! Used as ansicpg for RTF fcharset
      */
     QCString trRTFCharSet() override
@@ -1471,7 +1452,7 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
 
     /*! This is used in HTML as the title of page with source code for file filename
      */
-    QCString trSourceFile(QCString& filename) override
+    QCString trSourceFile(const QCString& filename) override
     {
       return "Αρχείο κώδικα " + filename;
     }
@@ -1845,10 +1826,10 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
       QCString text  = full? months_full[month-1] : months_short[month-1];
       return text;
     }
-    QCString trDayPeriod(int period) override
+    QCString trDayPeriod(bool period) override
     {
       static const char *dayPeriod[] = { "π.μ.", "μ.μ." };
-      return dayPeriod[period];
+      return dayPeriod[period?1:0];
     }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2327,7 +2308,7 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
       switch(compType)
       {
         case ClassDef::Class:
-          if (lang == SrcLangExt_Fortran) trType(true,true);
+          if (lang == SrcLangExt::Fortran) trType(true,true);
           else result=trClass(true,true);
           break;
         case ClassDef::Struct:     result="Δομής"; break;
@@ -2357,7 +2338,7 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
      *  followed by a single name of the VHDL process flowchart.
      */
     QCString trFlowchart() override
-    { return "Διάγραμμα ροής: "; }
+    { return "Διάγραμμα ροής:"; }
 
     /*! Please translate also updated body of the method
      *  trMemberFunctionDocumentation(), now better adapted for
@@ -2613,6 +2594,89 @@ class TranslatorGreek : public TranslatorAdapter_1_9_6
       else
         result+="στους χώρους ονομάτων που ανήκουν:";
       return result;
+    }
+    QCString trDefinition() override  { return "Ορισμός";}
+    QCString trDeclaration() override { return "Δήλωση";}
+
+//////////////////////////////////////////////////////////////////////////
+// new since 1.9.8
+//////////////////////////////////////////////////////////////////////////
+
+    QCString trTopics() override
+    { return "Θέματα"; }
+    QCString trTopicDocumentation() override
+    { return "Τεκμηρίωση Θέματος"; }
+    QCString trTopicList() override
+    { return "Λίστα Θεμάτων"; }
+    QCString trTopicIndex() override
+    { return "Ευρετήριο Θεμάτων"; }
+    QCString trTopicListDescription() override
+    { return "Μια λίστα με όλα τα θέματα με σύντομες περιγραφές:"; }
+    QCString trModuleMembersDescriptionTotal(ModuleMemberHighlight::Enum hl) override
+    {
+      bool extractAll = Config_getBool(EXTRACT_ALL);
+      QCString result="Μια λίστα με ";
+      QCString singularResult = "";
+      switch (hl)
+      {
+        case ModuleMemberHighlight::All:
+          singularResult="μέλος";
+          result+="όλα ";
+          if (!extractAll) result+="τα τεκμηριωμένα ";
+          result+="μέλη";
+          break;
+        case ModuleMemberHighlight::Functions:
+          singularResult="συνάρτηση";
+          result+="όλες ";
+          if (!extractAll) result+="τις τεκμηριωμένες ";
+          result+="συναρτήσεις";
+          break;
+        case ModuleMemberHighlight::Variables:
+          singularResult="μεταβλητή";
+          result+="όλες ";
+          if (!extractAll) result+="τις τεκμηριωμένες ";
+          result+="μεταβλητές";
+          break;
+        case ModuleMemberHighlight::Typedefs:
+          singularResult="ορισμό τύπου";
+          result+="όλους ";
+          if (!extractAll) result+="τους τεκμηριωμένους ";
+          result+="ορισμούς τύπων";
+          break;
+        case ModuleMemberHighlight::Enums:
+          singularResult="απαρίθμηση";
+          result+="όλες ";
+          if (!extractAll) result+="τις τεκμηριωμένες ";
+          result+="απαριθμήσεις";
+          break;
+        case ModuleMemberHighlight::EnumValues:
+          singularResult="τιμή απαρίθμησης";
+          result+="όλες ";
+          if (!extractAll) result+="τις τεκμηριωμένες ";
+          result+="τιμές απαριθμήσεων";
+          break;
+        case ModuleMemberHighlight::Total: // for completeness
+          break;
+      }
+      result+=" υπομονάδων, με συνδέσμους στην ";
+      if (extractAll)
+        result+="τεκμηρίωση της υπομονάδας για κάθε " + singularResult + ":";
+      else
+        result+="υπομονάδα στην οποία ανήκουν:";
+      return result;
+    }
+    QCString trExportedModules() override
+    {
+      return "Εξαγόμενες Υπομονάδες";
+    }
+
+//////////////////////////////////////////////////////////////////////////
+// new since 1.10.0
+//////////////////////////////////////////////////////////////////////////
+
+    QCString trCopyToClipboard() override
+    {
+      return "Αντιγραφή στο πρόχειρο";
     }
 };
 

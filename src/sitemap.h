@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "qcstring.h"
+#include "construct.h"
 
 class Definition;
 class MemberDef;
@@ -25,8 +26,8 @@ class Sitemap
 {
   public:
     Sitemap();
-    ~Sitemap();
-    Sitemap(Sitemap &&);
+   ~Sitemap();
+    ONLY_MOVABLE_DECL(Sitemap)
 
     void initialize();
     void finalize();
@@ -53,8 +54,8 @@ class Crawlmap
 {
   public:
     Crawlmap();
-    ~Crawlmap();
-    Crawlmap(Crawlmap &&);
+   ~Crawlmap();
+    ONLY_MOVABLE_DECL(Crawlmap)
 
     void initialize();
     void finalize();
@@ -63,9 +64,9 @@ class Crawlmap
     void addContentsItem(bool isDir, const QCString & name, const QCString & ref,
                          const QCString & file, const QCString & anchor,
                          bool separateIndex,bool addToNavIndex,
-                         const Definition *def){}
+                         const Definition *def);
     void addIndexItem(const Definition *context, const MemberDef *md,
-                      const QCString &sectionAnchor, const QCString &title){}
+                      const QCString &sectionAnchor, const QCString &title);
     void addIndexFile(const QCString & name);
     void addImageFile(const QCString & name){}
     void addStyleSheetFile(const QCString & name){}

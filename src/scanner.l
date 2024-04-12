@@ -68,7 +68,7 @@ struct scannerYY_state
 {
   OutlineParserInterface *thisParser;
   CommentScanner   commentScanner;
-  const char *     inputString = 0;
+  const char *     inputString = nullptr;
   int              inputPosition = 0;
   int              lastContext = 0;
   int              lastCContext = 0;
@@ -127,9 +127,9 @@ struct scannerYY_state
   QCString         templateStr;
   QCString         aliasName;
   QCString         baseName;
-  QCString*        specName = 0;
+  QCString*        specName = nullptr;
 
-  SrcLangExt       language = SrcLangExt_Unknown;
+  SrcLangExt       language = SrcLangExt::Unknown;
   bool             insideIDL   = false;                //!< processing IDL code?
   bool             insideJava  = false;                //!< processing Java code?
   bool             insideCS    = false;                //!< processing C# code?
@@ -153,27 +153,27 @@ struct scannerYY_state
   int              lastCopyArgStringContext = 0;
   int              lastCopyArgContext = 0;
   int              requiresContext = 0;
-  QCString        *copyArgString = 0;
+  QCString        *copyArgString = nullptr;
   QCString         fullArgString;
   QCString         dummyRawString;
 
-  ArgumentList    *currentArgumentList = 0;
+  ArgumentList    *currentArgumentList = nullptr;
   char             lastCopyArgChar = '\0';
 
-  QCString *pCopyQuotedString = 0;
-  QCString *pCopyRoundString = 0;
-  QCString *pCopyCurlyString = 0;
-  QCString *pCopySharpString = 0;
-  QCString *pCopyRawString = 0;
-  TextStream *pCopyCurlyGString = 0;
-  TextStream *pCopyRoundGString = 0;
-  TextStream *pCopySquareGString = 0;
-  TextStream *pCopyQuotedGString = 0;
-  TextStream *pCopyHereDocGString = 0;
-  TextStream *pCopyRawGString = 0;
-  TextStream *pSkipVerbString = 0;
-  TextStream *pSkipInterpString = 0;
-  TextStream *pSkipInterpVerbString = 0;
+  QCString *pCopyQuotedString = nullptr;
+  QCString *pCopyRoundString = nullptr;
+  QCString *pCopyCurlyString = nullptr;
+  QCString *pCopySharpString = nullptr;
+  QCString *pCopyRawString = nullptr;
+  TextStream *pCopyCurlyGString = nullptr;
+  TextStream *pCopyRoundGString = nullptr;
+  TextStream *pCopySquareGString = nullptr;
+  TextStream *pCopyQuotedGString = nullptr;
+  TextStream *pCopyHereDocGString = nullptr;
+  TextStream *pCopyRawGString = nullptr;
+  TextStream *pSkipVerbString = nullptr;
+  TextStream *pSkipInterpString = nullptr;
+  TextStream *pSkipInterpVerbString = nullptr;
 
   bool             insideFormula = false;
   bool             insideTryBlock = false;
@@ -204,12 +204,12 @@ struct scannerYY_state
 
   int              column = 0;
 
-  uint32_t         fencedSize = 0;
+  size_t           fencedSize = 0;
   int              nestedComment = 0;
   std::vector< std::pair<Entry*,std::shared_ptr<Entry> > > outerScopeEntries;
   QCString         programStr;
 
-  ClangTUParser   *clangParser = 0;
+  ClangTUParser   *clangParser = nullptr;
 
   int              fakeNS  = 0; //<! number of file scoped namespaces in CSharp file
   TextStream       dummyTextStream;
@@ -243,6 +243,7 @@ static void addKnRArgInfo(yyscan_t yyscanner,const QCString &type,const QCString
                           const QCString &brief,const QCString &docs);
 static int yyread(yyscan_t yyscanner,char *buf,int max_size);
 static void setJavaProtection(yyscan_t yyscanner);
+static void storeClangId(yyscan_t yyscanner,const char *id);
 
 /* ----------------------------------------------------------------- */
 #undef  YY_INPUT
@@ -789,7 +790,7 @@ NONLopt [^\n]*
                                             yyextra->current->bodyLine  = yyextra->yyLineNr;
                                             yyextra->current->bodyColumn = yyextra->yyColNr;
                                             yyextra->current->section = EntryType::makeFunction();
-                                            yyextra->language = yyextra->current->lang = SrcLangExt_ObjC;
+                                            yyextra->language = yyextra->current->lang = SrcLangExt::ObjC;
                                             yyextra->insideObjC = TRUE;
                                             yyextra->current->virt = Specifier::Virtual;
 
@@ -807,10 +808,7 @@ NONLopt [^\n]*
                                             yyextra->current->type = "id";
                                           }
                                           yyextra->current->name = yytext;
-                                          if (yyextra->clangParser && (yyextra->insideCpp || yyextra->insideObjC))
-                                          {
-                                            yyextra->current->id = yyextra->clangParser->lookup(yyextra->yyLineNr,yytext);
-                                          }
+                                          storeClangId(yyscanner,yytext);
                                         }
 <ObjCMethod>":"{B}*                     { // start of parameter list
                                           yyextra->current->name += ':';
@@ -863,7 +861,7 @@ NONLopt [^\n]*
    */
 <ObjCParams>"("                         {
                                           yyextra->roundCount=0;
-                                          yyextra->current->argList.back().type.resize(0);
+                                          yyextra->current->argList.back().type.clear();
                                           BEGIN( ObjCParamType );
                                         }
 <ObjCParamType>"("                      {
@@ -924,7 +922,7 @@ NONLopt [^\n]*
                                             yyextra->current->fileName = yyextra->fileName ;
                                             yyextra->current->startLine = yyextra->yyLineNr ;
                                             yyextra->current->startColumn = yyextra->yyColNr;
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->args.clear();
                                             yyextra->current->section = EntryType::makeTypedef();
                                             yyextra->isTypedef = TRUE;
                                             BEGIN( SliceSequence );
@@ -941,7 +939,7 @@ NONLopt [^\n]*
                                             yyextra->current->fileName = yyextra->fileName ;
                                             yyextra->current->startLine = yyextra->yyLineNr ;
                                             yyextra->current->startColumn = yyextra->yyColNr;
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->args.clear();
                                             yyextra->current->section = EntryType::makeTypedef() ;
                                             yyextra->isTypedef = TRUE;
                                             BEGIN( SliceDictionary );
@@ -1084,6 +1082,7 @@ NONLopt [^\n]*
                                         }
 <FindMembers>{B}*"module"{BN}*";"       { // global module section
                                           if (!yyextra->insideCpp) REJECT;
+                                          if (!yyextra->current->type.isEmpty() || !yyextra->current->name.isEmpty()) REJECT;
                                           //printf("Implementation module unit\n");
                                           lineCount(yyscanner);
                                           BEGIN( FindMembers );
@@ -1235,6 +1234,20 @@ NONLopt [^\n]*
                                           if (yyextra->insideCpp)
                                           {
                                             yyextra->current->spec.setConstExpr(true);
+                                          }
+                                          REJECT;
+                                        }
+<FindMembers>{B}*"consteval"{BN}+       {
+                                          if (yyextra->insideCpp)
+                                          {
+                                            yyextra->current->spec.setConstEval(true);
+                                          }
+                                          REJECT;
+                                        }
+<FindMembers>{B}*"constinit"{BN}+       {
+                                          if (yyextra->insideCpp)
+                                          {
+                                            yyextra->current->spec.setConstInit(true);
                                           }
                                           REJECT;
                                         }
@@ -1472,7 +1485,7 @@ NONLopt [^\n]*
                                           lineCount(yyscanner);
                                           yyextra->isTypedef=FALSE;
                                           yyextra->current->section = EntryType::makeObjcImpl();
-                                          yyextra->language = yyextra->current->lang = SrcLangExt_ObjC;
+                                          yyextra->language = yyextra->current->lang = SrcLangExt::ObjC;
                                           yyextra->insideObjC = TRUE;
                                           yyextra->current->protection = yyextra->protection = Protection::Public ;
                                           addType(yyscanner);
@@ -1490,7 +1503,7 @@ NONLopt [^\n]*
                                           yyextra->current->spec = TypeSpecifier().setInterface(true);
                                           if (!yyextra->insideJava)
                                           {
-                                            yyextra->language = yyextra->current->lang = SrcLangExt_ObjC;
+                                            yyextra->language = yyextra->current->lang = SrcLangExt::ObjC;
                                             yyextra->insideObjC = TRUE;
                                           }
                                           yyextra->current->protection = yyextra->protection = Protection::Public ;
@@ -1508,7 +1521,7 @@ NONLopt [^\n]*
                                           yyextra->isTypedef=FALSE;
                                           yyextra->current->section = EntryType::makeClass();
                                           yyextra->current->spec = TypeSpecifier().setProtocol(true);
-                                          yyextra->language = yyextra->current->lang = SrcLangExt_ObjC;
+                                          yyextra->language = yyextra->current->lang = SrcLangExt::ObjC;
                                           yyextra->insideObjC = TRUE;
                                           yyextra->current->protection = yyextra->protection = Protection::Public ;
                                           addType(yyscanner);
@@ -1572,7 +1585,7 @@ NONLopt [^\n]*
                                           yyextra->current->bodyColumn = yyextra->yyColNr;
                                           if (yytext[0]=='@')
                                           {
-                                            yyextra->language = yyextra->current->lang = SrcLangExt_ObjC;
+                                            yyextra->language = yyextra->current->lang = SrcLangExt::ObjC;
                                             yyextra->insideObjC = TRUE;
                                           }
                                           lineCount(yyscanner) ;
@@ -1888,7 +1901,7 @@ NONLopt [^\n]*
                                           yyextra->current->section = EntryType::makeUsingDir();
                                           yyextra->current_root->moveToSubEntryAndRefresh(yyextra->current);
                                           initEntry(yyscanner);
-                                          yyextra->aliasName.resize(0);
+                                          yyextra->aliasName.clear();
                                         }
 <PHPUseAs>{BN}+"as"{BN}+                {
                                           lineCount(yyscanner);
@@ -1903,7 +1916,7 @@ NONLopt [^\n]*
                                                  std::string(removeRedundantWhiteSpace(
                                                    substitute(yyextra->aliasName,"\\","::")).str())});
                                           }
-                                          yyextra->aliasName.resize(0);
+                                          yyextra->aliasName.clear();
                                         }
 <PHPUse,PHPUseAs>[,;]                   {
                                           if (*yytext==',')
@@ -1994,7 +2007,7 @@ NONLopt [^\n]*
                                           init.stripPrefix("struct ");
                                           init = init.stripWhiteSpace();
                                           yyextra->current->type = "typedef "+init;
-                                          yyextra->current->args.resize(0);
+                                          yyextra->current->args.clear();
                                           yyextra->current->spec.setAlias(true);
                                           yyextra->current_root->moveToSubEntryAndRefresh(yyextra->current);
                                           initEntry(yyscanner);
@@ -2028,7 +2041,7 @@ NONLopt [^\n]*
                                           lineCount(yyscanner);
                                           addType(yyscanner);
                                           yyextra->current->name=name;
-                                          //yyextra->current->scopeSpec.resize(0);
+                                          //yyextra->current->scopeSpec.clear();
                                           // yyextra->currentTemplateSpec = &yyextra->current->scopeSpec;
                                           if (nameIsOperator(yyextra->current->name))
                                             BEGIN( Operator );
@@ -2040,7 +2053,7 @@ NONLopt [^\n]*
                                           yyextra->roundCount=0;
                                           lineCount(yyscanner);
                                           yyextra->current->name+=((QCString)yytext).stripWhiteSpace();
-                                          //yyextra->current->memberSpec.resize(0);
+                                          //yyextra->current->memberSpec.clear();
                                           // yyextra->currentTemplateSpec = &yyextra->current->memberSpec;
                                           if (nameIsOperator(yyextra->current->name))
                                             BEGIN( Operator );
@@ -2120,7 +2133,7 @@ NONLopt [^\n]*
 <EndTemplate>">"{BNopt}/"("({BN}*{TSCOPE}{BN}*"::")*({BN}*"*"{BN}*)+ { // function pointer returning a template instance
                                           lineCount(yyscanner);
                                           yyextra->current->name+='>';
-                                          if (yyextra->roundCount==0)
+                                          if (yyextra->roundCount==0 && --yyextra->sharpCount<=0)
                                           {
                                             BEGIN(FindMembers);
                                           }
@@ -2203,7 +2216,7 @@ NONLopt [^\n]*
                                           yyextra->yyBegColNr  = yyextra->yyColNr;
                                           yyextra->current->protection = Protection::Public ; // see bug734245 & bug735462
                                           yyextra->current->mtype = yyextra->mtype = MethodTypes::Property;
-                                          yyextra->current->type.resize(0);
+                                          yyextra->current->type.clear();
                                           BEGIN(QtPropType);
                                         }
 <QtPropType>"("                         { // start of property arguments
@@ -2259,7 +2272,7 @@ NONLopt [^\n]*
                                         }
 <FindMembers>"requires"                 { // C++20 requires clause
                                           if (yyextra->insideJava) REJECT;
-                                          yyextra->current->req.resize(0);
+                                          yyextra->current->req.clear();
                                           yyextra->requiresContext = YY_START;
                                           BEGIN(RequiresClause);
                                         }
@@ -2359,10 +2372,7 @@ NONLopt [^\n]*
                                           BEGIN(yyextra->requiresContext);
                                         }
 <FindMembers,FindMemberName>{SCOPENAME} {
-                                          if (yyextra->clangParser && (yyextra->insideCpp || yyextra->insideObjC))
-                                          {
-                                            yyextra->current->id = yyextra->clangParser->lookup(yyextra->yyLineNr,yytext);
-                                          }
+                                          storeClangId(yyscanner,yytext);
                                           yyextra->yyBegColNr=yyextra->yyColNr;
                                           yyextra->yyBegLineNr=yyextra->yyLineNr;
                                           lineCount(yyscanner);
@@ -2507,6 +2517,30 @@ NONLopt [^\n]*
                                                 }
                                                 yyextra->current->name=yyextra->current->name.mid(10);
                                               }
+                                              else if (yyextra->current->name.startsWith("consteval "))
+                                              {
+                                                if (yyextra->current->type.isEmpty())
+                                                {
+                                                  yyextra->current->type="consteval";
+                                                }
+                                                else
+                                                {
+                                                  yyextra->current->type+="consteval ";
+                                                }
+                                                yyextra->current->name=yyextra->current->name.mid(10);
+                                              }
+                                              else if (yyextra->current->name.startsWith("constinit "))
+                                              {
+                                                if (yyextra->current->type.isEmpty())
+                                                {
+                                                  yyextra->current->type="constinit";
+                                                }
+                                                else
+                                                {
+                                                  yyextra->current->type+="constinit ";
+                                                }
+                                                yyextra->current->name=yyextra->current->name.mid(10);
+                                              }
                                               else if (yyextra->current->name.startsWith("const "))
                                               {
                                                 if (yyextra->current->type.isEmpty())
@@ -2635,7 +2669,7 @@ NONLopt [^\n]*
                                           yyextra->current->fileName   = yyextra->fileName;
                                           yyextra->current->startLine  = yyextra->yyLineNr;
                                           yyextra->current->startColumn = yyextra->yyColNr;
-                                          yyextra->current->type.resize(0);
+                                          yyextra->current->type.clear();
                                           yyextra->current->args       = yyextra->current->args.simplifyWhiteSpace();
                                           yyextra->current->name       = yyextra->current->name.stripWhiteSpace();
                                           yyextra->current->section = EntryType::makeDefine();
@@ -2709,10 +2743,7 @@ NONLopt [^\n]*
   */
 <SDefine>{ID}                            {
                                           //printf("Define '%s' without args\n",yytext);
-                                          if (yyextra->clangParser && (yyextra->insideCpp || yyextra->insideObjC))
-                                          {
-                                            yyextra->current->id = yyextra->clangParser->lookup(yyextra->yyLineNr,yytext);
-                                          }
+                                          storeClangId(yyscanner,yytext);
                                           yyextra->current->bodyLine = yyextra->yyLineNr;
                                           yyextra->current->bodyColumn = yyextra->yyColNr;
                                           yyextra->current->name = yytext;
@@ -2731,7 +2762,7 @@ NONLopt [^\n]*
                                           yyextra->current->fileName   = yyextra->fileName;
                                           yyextra->current->startLine  = yyextra->yyLineNr;
                                           yyextra->current->startColumn = yyextra->yyColNr;
-                                          yyextra->current->type.resize(0);
+                                          yyextra->current->type.clear();
                                           yyextra->current->type       = "const";
                                           QCString init = yyextra->current->initializer.str();
                                           init = init.simplifyWhiteSpace();
@@ -2809,7 +2840,7 @@ NONLopt [^\n]*
                                           if (YY_START==EnumBaseType && yyextra->current->section.isEnum())
                                           {
                                             yyextra->current->bitfields = ":"+yyextra->current->args;
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->args.clear();
                                             yyextra->current->section = EntryType::makeVariable();
                                           }
                                           if (yytext[yyleng-3]=='/')
@@ -2838,7 +2869,7 @@ NONLopt [^\n]*
                                           if (YY_START==EnumBaseType && yyextra->current->section.isEnum())
                                           {
                                             yyextra->current->bitfields = ":"+yyextra->current->args;
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->args.clear();
                                             yyextra->current->section = EntryType::makeVariable();
                                           }
                                           if (yytext[yyleng-3]=='/')
@@ -3160,9 +3191,11 @@ NONLopt [^\n]*
                                           *yyextra->pSkipVerbString << yytext;
                                         }
 <SkipVerbString>"\\\\"                  { // escaped backslash
+                                          if (yyextra->insideCS) REJECT
                                           *yyextra->pSkipVerbString << yytext;
                                         }
 <SkipVerbString>"\\\""                  { // backslash escaped quote
+                                          if (yyextra->insideCS) REJECT
                                           *yyextra->pSkipVerbString << yytext;
                                         }
 <SkipVerbString>"\"\""                  { // quote escape
@@ -3584,8 +3617,8 @@ NONLopt [^\n]*
                                               yyextra->current->name=="enum") // see bug 69041, C++11 style anon enum: 'enum : unsigned int {...}'
                                           {
                                             yyextra->current->section = EntryType::makeEnum();
-                                            yyextra->current->name.resize(0);
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->name.clear();
+                                            yyextra->current->args.clear();
                                             BEGIN(EnumBaseType);
                                           }
                                           else
@@ -3658,12 +3691,12 @@ NONLopt [^\n]*
                                           {
                                             yyextra->current->isStatic = isStatic; // the static attribute holds for all variables
                                             yyextra->current->protection = prot;
-                                            yyextra->current->name.resize(0);
-                                            yyextra->current->args.resize(0);
-                                            yyextra->current->brief.resize(0);
-                                            yyextra->current->doc.resize(0);
+                                            yyextra->current->name.clear();
+                                            yyextra->current->args.clear();
+                                            yyextra->current->brief.clear();
+                                            yyextra->current->doc.clear();
                                             yyextra->current->initializer.str(std::string());
-                                            yyextra->current->bitfields.resize(0);
+                                            yyextra->current->bitfields.clear();
                                             yyextra->current->type = stripFuncPtr(oldType);
                                           }
                                           else
@@ -3693,8 +3726,8 @@ NONLopt [^\n]*
                                           {
                                             yyextra->squareCount=1;
                                             yyextra->lastSquareContext = YY_START;
-                                            yyextra->idlAttr.resize(0);
-                                            yyextra->idlProp.resize(0);
+                                            yyextra->idlAttr.clear();
+                                            yyextra->idlProp.clear();
                                             yyextra->current->mtype = yyextra->mtype;
 
                                             if (Config_getBool(IDL_PROPERTY_SUPPORT) &&
@@ -3713,7 +3746,7 @@ NONLopt [^\n]*
                                             yyextra->lastSquareContext = YY_START;
                                             // Skip the C# attribute
                                             // for this member
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->args.clear();
                                             BEGIN( SkipSquare );
                                           }
                                           else
@@ -3874,8 +3907,8 @@ NONLopt [^\n]*
                                           yyextra->current->args += " ";
                                           yyextra->current->args += yytext;
                                           yyextra->current->args = yyextra->current->args.left(yyextra->current->args.length() - 1);    // strip comma
-                                          yyextra->idlProp.resize(0);
-                                          yyextra->idlAttr.resize(0);
+                                          yyextra->idlProp.clear();
+                                          yyextra->idlAttr.clear();
                                           BEGIN( IDLProp );
                                         }
 <IDLProp>{BN}*{ID}{BN}*")"{BN}*         {
@@ -3935,10 +3968,7 @@ NONLopt [^\n]*
                                         }
 <Sharp>.                                { yyextra->current->type += *yytext ; }
 <FindFields>{ID}                        {
-                                          if (yyextra->clangParser && (yyextra->insideCpp || yyextra->insideObjC))
-                                          {
-                                            yyextra->current->id = yyextra->clangParser->lookup(yyextra->yyLineNr,yytext);
-                                          }
+                                          storeClangId(yyscanner,yytext);
                                           yyextra->current->bodyLine = yyextra->yyLineNr;
                                           yyextra->current->bodyColumn = yyextra->yyColNr;
                                           yyextra->current->name     = yytext;
@@ -4231,8 +4261,8 @@ NONLopt [^\n]*
                                                       !reg::search(yyextra->memspecEntry->name.str(),re)) // not typedef or anonymous type (see bug691071)
                                                   {
                                                     // enabled the next two lines for bug 623424
-                                                    yyextra->current->doc.resize(0);
-                                                    yyextra->current->brief.resize(0);
+                                                    yyextra->current->doc.clear();
+                                                    yyextra->current->brief.clear();
                                                   }
                                                   BEGIN( MemberSpec ) ;
                                                 }
@@ -4440,9 +4470,9 @@ NONLopt [^\n]*
                                                 yyextra->memspecEntry->brief += yyextra->current->brief;
                                               }
                                             }
-                                            yyextra->msType.resize(0);
-                                            yyextra->msName.resize(0);
-                                            yyextra->msArgs.resize(0);
+                                            yyextra->msType.clear();
+                                            yyextra->msName.clear();
+                                            yyextra->msArgs.clear();
                                             yyextra->isTypedef=FALSE;
                                             yyextra->firstTypedefEntry.reset();
                                             yyextra->memspecEntry.reset();
@@ -4452,8 +4482,8 @@ NONLopt [^\n]*
                                           }
                                           else
                                           {
-                                            yyextra->current->doc.resize(0);
-                                            yyextra->current->brief.resize(0);
+                                            yyextra->current->doc.clear();
+                                            yyextra->current->brief.clear();
                                           }
 
                                         }
@@ -4480,7 +4510,7 @@ NONLopt [^\n]*
 <ReadBodyIntf>"@end"/[^a-z_A-Z0-9]      { // end of Objective C block
                                           yyextra->current_root->moveToSubEntryAndRefresh( yyextra->current ) ;
                                           initEntry(yyscanner);
-                                          yyextra->language = yyextra->current->lang = SrcLangExt_Cpp; // see bug746361
+                                          yyextra->language = yyextra->current->lang = SrcLangExt::Cpp; // see bug746361
                                           yyextra->insideObjC=FALSE;
                                           BEGIN( FindMembers );
                                         }
@@ -5229,7 +5259,7 @@ NONLopt [^\n]*
                                           else if (checkForKnRstyleC(yyscanner)) // K&R style C function
                                           {
                                             yyextra->current->args = yytext;
-                                            yyextra->oldStyleArgType.resize(0);
+                                            yyextra->oldStyleArgType.clear();
                                             BEGIN(OldStyleArgs);
                                           }
                                           else
@@ -5254,8 +5284,8 @@ NONLopt [^\n]*
                                           }
                                           addKnRArgInfo(yyscanner,yyextra->oldStyleArgType+oldStyleArgPtr,
                                                         oldStyleArgName,brief,doc);
-                                          yyextra->current->args.resize(0);
-                                          if (*yytext==';') yyextra->oldStyleArgType.resize(0);
+                                          yyextra->current->args.clear();
+                                          if (*yytext==';') yyextra->oldStyleArgType.clear();
                                         }
 <OldStyleArgs>{ID}                      { yyextra->current->args += yytext; }
 <OldStyleArgs>"{"                       {
@@ -5613,7 +5643,7 @@ NONLopt [^\n]*
                                           yyextra->delimiter = raw.mid(2);
                                           yyextra->delimiter=yyextra->delimiter.left(yyextra->delimiter.length()-1);
                                           yyextra->lastRawStringContext = YY_START;
-                                          yyextra->dummyRawString.resize(0);
+                                          yyextra->dummyRawString.clear();
                                           yyextra->pCopyRawString = &yyextra->dummyRawString;
                                           *yyextra->pCopyRawString += yytext;
                                           BEGIN(RawString);
@@ -5685,6 +5715,12 @@ NONLopt [^\n]*
                                             BEGIN(SkipPHPString);
                                           }
                                         }
+<SkipC11Attribute>{ID}                  {
+                                          if (QCString(yytext)=="nodiscard")
+                                          {
+                                            yyextra->current->spec.setNoDiscard(true);
+                                          }
+                                        }
 <SkipInits,SkipC11Inits,SkipCurly,SkipCurlyCpp,SkipC11Attribute>.       { }
 <SkipString,SkipPHPString>\\.           { }
 <SkipString>\"                          {
@@ -5705,9 +5741,9 @@ NONLopt [^\n]*
                                         }
 <CompoundName>";"                       {
                                           yyextra->current->section = EntryType::makeEmpty() ;
-                                          yyextra->current->type.resize(0) ;
-                                          yyextra->current->name.resize(0) ;
-                                          yyextra->current->args.resize(0) ;
+                                          yyextra->current->type.clear() ;
+                                          yyextra->current->name.clear() ;
+                                          yyextra->current->args.clear() ;
                                           yyextra->current->argList.clear();
                                           BEGIN( FindMembers ) ;
                                         }
@@ -5726,7 +5762,7 @@ NONLopt [^\n]*
                                             {
                                               yyextra->current->extends.push_back(
                                                 BaseInfo(yyextra->baseName,Protection::Public,Specifier::Normal));
-                                              yyextra->baseName.resize(0);
+                                              yyextra->baseName.clear();
                                             }
                                             yyextra->current_root->moveToSubEntryAndRefresh( yyextra->current ) ;
                                             initEntry(yyscanner);
@@ -5734,9 +5770,9 @@ NONLopt [^\n]*
                                           else
                                           {
                                             yyextra->current->section = EntryType::makeEmpty() ;
-                                            yyextra->current->type.resize(0) ;
-                                            yyextra->current->name.resize(0) ;
-                                            yyextra->current->args.resize(0) ;
+                                            yyextra->current->type.clear() ;
+                                            yyextra->current->name.clear() ;
+                                            yyextra->current->args.clear() ;
                                             yyextra->current->argList.clear();
                                           }
                                           BEGIN( FindMembers ) ;
@@ -5865,7 +5901,7 @@ NONLopt [^\n]*
                                             initEntry(yyscanner);
                                             if (yyextra->insideObjC) // see bug746361
                                             {
-                                              yyextra->language = yyextra->current->lang = SrcLangExt_Cpp;
+                                              yyextra->language = yyextra->current->lang = SrcLangExt::Cpp;
                                               yyextra->insideObjC = FALSE;
                                               }
                                             if (yyextra->isTypedef) // typedef of a class, put typedef keyword back
@@ -5923,10 +5959,7 @@ NONLopt [^\n]*
                                         }
 <CompoundName>{SCOPENAME}               {
                                           yyextra->current->name = yytext ;
-                                          if (yyextra->clangParser && (yyextra->insideCpp || yyextra->insideObjC))
-                                          {
-                                            yyextra->current->id = yyextra->clangParser->lookup(yyextra->yyLineNr,yytext);
-                                          }
+                                          storeClangId(yyscanner,yytext);
                                           lineCount(yyscanner);
                                           if (yyextra->current->spec.isProtocol())
                                           {
@@ -5988,14 +6021,28 @@ NONLopt [^\n]*
                                             REJECT;
                                           }
                                         }
+<ClassVar>({ID}{BN}*"::"{BN}*)+{ID}     {
+                                          yyextra->yyBegColNr=yyextra->yyColNr;
+                                          yyextra->yyBegLineNr=yyextra->yyLineNr;
+                                          storeClangId(yyscanner,yytext);
+                                          lineCount(yyscanner);
+                                          if (yyextra->current->section.isEnum())
+                                          { // found "enum a N::b" -> variable
+                                            yyextra->current->section = EntryType::makeVariable() ;
+                                          }
+                                          yyextra->current->type += ' ' ;
+                                          yyextra->current->type += yyextra->current->name ;
+                                          yyextra->current->name = QCString(yytext).simplifyWhiteSpace();
+
+                                          if (nameIsOperator(yyextra->current->name))
+                                          {
+                                            BEGIN( Operator );
+                                          }
+                                        }
 <ClassVar>{ID}                          {
                                           yyextra->yyBegColNr=yyextra->yyColNr;
                                           yyextra->yyBegLineNr=yyextra->yyLineNr;
-
-                                          if (yyextra->clangParser && (yyextra->insideCpp || yyextra->insideObjC))
-                                          {
-                                            yyextra->current->id = yyextra->clangParser->lookup(yyextra->yyLineNr,yytext);
-                                          }
+                                          storeClangId(yyscanner,yytext);
                                           if (yyextra->insideIDL && qstrcmp(yytext,"switch")==0)
                                           {
                                             // Corba IDL style union
@@ -6004,10 +6051,10 @@ NONLopt [^\n]*
                                           }
                                           else if ((yyextra->insideJava || yyextra->insidePHP || yyextra->insideJS || yyextra->insideSlice) && (qstrcmp(yytext,"implements")==0 || qstrcmp(yytext,"extends")==0))
                                           {
-                                            yyextra->current->type.resize(0);
+                                            yyextra->current->type.clear();
                                             yyextra->baseProt = Protection::Public;
                                             yyextra->baseVirt = Specifier::Normal;
-                                            yyextra->baseName.resize(0);
+                                            yyextra->baseName.clear();
                                             BEGIN( BasesProt ) ;
                                           }
                                           else if (yyextra->insideCS && qstrcmp(yytext,"where")==0) // C# type constraint
@@ -6064,7 +6111,7 @@ NONLopt [^\n]*
                                         }
 <CSConstraintType,CSConstraintName>{CCS}{CCE} { /* empty comment */ }
 <CSConstraintType,CSConstraintName>({CCS}[*!]|{CPPC}[/!])("<"?)    { // special comment
-                                          yyextra->fullArgString.resize(0);
+                                          yyextra->fullArgString.clear();
                                           yyextra->lastCopyArgChar='#'; // end marker
                                           yyextra->lastCommentInArgContext=YY_START;
                                           if (yytext[1]=='/')
@@ -6151,18 +6198,18 @@ NONLopt [^\n]*
                                           if (yyextra->current->section.isVariable()) // enum A B:2, see bug 748208
                                           {
                                             yyextra->current->bitfields+=":";
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->args.clear();
                                             BEGIN(BitFields);
                                           }
                                           else if (yyextra->current->section.isEnum()) // enum E:2, see bug 313527,
                                                                                  // or C++11 style enum: 'E : unsigned int {...}'
                                           {
-                                            yyextra->current->args.resize(0);
+                                            yyextra->current->args.clear();
                                             BEGIN(EnumBaseType);
                                           }
                                           else
                                           {
-                                            yyextra->current->type.resize(0);
+                                            yyextra->current->type.clear();
                                             if (yyextra->current->spec.isInterface() ||
                                                 yyextra->current->spec.isStruct()    ||
                                                 yyextra->current->spec.isRef()       ||
@@ -6177,7 +6224,7 @@ NONLopt [^\n]*
                                               yyextra->baseProt = Protection::Private;
                                             }
                                             yyextra->baseVirt = Specifier::Normal;
-                                            yyextra->baseName.resize(0);
+                                            yyextra->baseName.clear();
                                             BEGIN( BasesProt ) ;
                                           }
                                         }
@@ -6310,7 +6357,7 @@ NONLopt [^\n]*
                                             yyextra->current->args += yytext;
                                           }
                                         }
-<Bases>("::")?{BN}*({ID}{BN}*"::"{BN}*)*{ID}    {
+<Bases>("::")?{BN}*({ID}{BN}*"::"{BN}*)*{ID}("...")? {
                                           lineCount(yyscanner);
                                           QCString baseScope = yytext;
                                           if (yyextra->insideCS && baseScope.stripWhiteSpace()=="where")
@@ -6475,7 +6522,7 @@ NONLopt [^\n]*
                                             yyextra->baseProt=Protection::Private;
                                           }
                                           yyextra->baseVirt=Specifier::Normal;
-                                          yyextra->baseName.resize(0);
+                                          yyextra->baseName.clear();
                                           if (*yytext=='>')
                                           { // end of a ObjC protocol list
                                             yyextra->insideProtocolList=FALSE;
@@ -6624,6 +6671,11 @@ NONLopt [^\n]*
                                             BEGIN( Comment ) ;
                                           }
                                         }
+<FindMembers,FindFields,MemberSpec,FuncQual,SkipCurly,Operator,ClassVar,SkipInits,Bases,OldStyleArgs>^{B}+({CPPC}{B}*)?{CCS}"*"/{NCOMM} {
+                                          lineCount(yyscanner);
+                                          yyextra->yyColNr=1;
+                                          REJECT;
+                                        }
 <FindMembers,FindFields,MemberSpec,FuncQual,SkipCurly,Operator,ClassVar,SkipInits,Bases,OldStyleArgs>({CPPC}{B}*)?{CCS}"*"/{NCOMM} {
                                           yyextra->lastDocContext = YY_START;
 
@@ -6727,7 +6779,7 @@ NONLopt [^\n]*
                                               if (yyextra->current->isStatic)
                                               {
                                                 yyextra->current->name="[static initializer]";
-                                                yyextra->current->type.resize(0);
+                                                yyextra->current->type.clear();
                                               }
                                               else
                                               {
@@ -6740,9 +6792,9 @@ NONLopt [^\n]*
                                             {
                                               // pre C++11 code -> ignore the initializer
                                               //yyextra->needsSemi = TRUE;
-                                              //yyextra->current->type.resize(0);
-                                              //yyextra->current->name.resize(0);
-                                              //yyextra->current->args.resize(0);
+                                              //yyextra->current->type.clear();
+                                              //yyextra->current->name.clear();
+                                              //yyextra->current->args.clear();
                                               //yyextra->current->argList.clear();
                                               //yyextra->curlyCount=0;
                                               //BEGIN( SkipCurlyBlock );
@@ -6890,8 +6942,12 @@ NONLopt [^\n]*
                                           handleCommentBlock(yyscanner,yyextra->docBlock.str(),FALSE);
                                           BEGIN(yyextra->docBlockContext);
                                         }
+<DocBlock>"\\ilinebr "{B}*"*"/[^/]      {
+                                          QCString indent;
+                                          indent.fill(' ',computeIndent(yytext+8,yyextra->column));
+                                          yyextra->docBlock << "\\ilinebr " << indent;
+                                        }
 <DocBlock>^{B}*"*"+/[^/]                {
-
                                           QCString indent;
                                           indent.fill(' ',computeIndent(yytext,yyextra->column));
                                           yyextra->docBlock << indent;
@@ -6978,11 +7034,30 @@ NONLopt [^\n]*
                                           yyextra->nestedComment=0;
                                           BEGIN(DocCopyBlock);
                                         }
-<DocBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]*                {
-
+<DocBlock>"\\ilinebr "({B}*"*"+)?{B}{0,3}"~~~"[~]* {
+                                          QCString pat = substitute(yytext+9,"*"," "); // skip over "\ilinebr " part
+                                          yyextra->docBlock << "\\ilinebr ";
+                                          yyextra->docBlock << pat;
+                                          yyextra->docBlockName="~~~";
+                                          yyextra->fencedSize=pat.stripWhiteSpace().length();
+                                          yyextra->nestedComment=0;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]* {
                                           QCString pat = substitute(yytext,"*"," ");
                                           yyextra->docBlock << pat;
                                           yyextra->docBlockName="~~~";
+                                          yyextra->fencedSize=pat.stripWhiteSpace().length();
+                                          yyextra->nestedComment=0;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>"\\ilinebr "({B}*"*"+)?{B}{0,3}"```"[`]*/(".")?[a-zA-Z0-9#_-]+ |
+<DocBlock>"\\ilinebr "({B}*"*"+)?{B}{0,3}"```"[`]*/"{"[^}]+"}" |
+<DocBlock>"\\ilinebr "({B}*"*"+)?{B}{0,3}"```"[`]* {
+                                          QCString pat = substitute(yytext+9,"*"," "); // skip over "\ilinebr " part
+                                          yyextra->docBlock << "\\ilinebr ";
+                                          yyextra->docBlock << pat;
+                                          yyextra->docBlockName="```";
                                           yyextra->fencedSize=pat.stripWhiteSpace().length();
                                           yyextra->nestedComment=0;
                                           BEGIN(DocCopyBlock);
@@ -6997,7 +7072,7 @@ NONLopt [^\n]*
                                           yyextra->nestedComment=0;
                                           BEGIN(DocCopyBlock);
                                         }
-<DocBlock>{B}*"<code>"                  {
+<DocBlock>{B}*"<"{CODE}">"              {
                                           if (yyextra->insideCS)
                                           {
                                             yyextra->docBlock << yytext;
@@ -7114,7 +7189,7 @@ NONLopt [^\n]*
 <DocCopyBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]* {
                                           QCString pat = substitute(yytext,"*"," ");
                                           yyextra->docBlock << pat;
-                                          if (yyextra->fencedSize==pat.stripWhiteSpace().length())
+                                          if (yyextra->docBlockName == "~~~" && yyextra->fencedSize==pat.stripWhiteSpace().length())
                                           {
                                             BEGIN(DocBlock);
                                           }
@@ -7122,7 +7197,7 @@ NONLopt [^\n]*
 <DocCopyBlock>^({B}*"*"+)?{B}{0,3}"```"[`]*                 {
                                           QCString pat = substitute(yytext,"*"," ");
                                           yyextra->docBlock << pat;
-                                          if (yyextra->fencedSize==pat.stripWhiteSpace().length())
+                                          if (yyextra->docBlockName == "```" && yyextra->fencedSize==pat.stripWhiteSpace().length())
                                           {
                                             BEGIN(DocBlock);
                                           }
@@ -7189,7 +7264,7 @@ NONLopt [^\n]*
                                           else
                                           {
                                             yyextra->current->type+=yyextra->current->name+yytext;
-                                            yyextra->current->name.resize(0);
+                                            yyextra->current->name.clear();
                                             BEGIN( PrototypePtr );
                                           }
                                         }
@@ -7370,7 +7445,7 @@ static void initParser(yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   yyextra->outerScopeEntries.clear();
-  yyextra->baseName.resize(0);
+  yyextra->baseName.clear();
   yyextra->protection = Protection::Public;
   yyextra->baseProt = Protection::Public;
   yyextra->sharpCount = 0;
@@ -7411,6 +7486,15 @@ static void initEntry(yyscan_t yyscanner)
 
 //-----------------------------------------------------------------------------
 
+static void storeClangId(yyscan_t yyscanner,const char *id)
+{
+  struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
+  if (yyextra->clangParser && (yyextra->insideCpp || yyextra->insideObjC))
+  {
+    yyextra->current->id = yyextra->clangParser->lookup(yyextra->yyLineNr,id);
+  }
+}
+
 static void lineCount(yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
@@ -7448,14 +7532,15 @@ static inline int computeIndent(const char *s,int startIndent)
   }
   return col;
 }
+
 static inline void initMethodProtection(yyscan_t yyscanner,Protection prot)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   yyextra->current->protection = yyextra->protection = prot;
   yyextra->current->mtype = yyextra->mtype = MethodTypes::Method;
-  yyextra->current->type.resize(0);
-  yyextra->current->name.resize(0);
-  yyextra->current->args.resize(0);
+  yyextra->current->type.clear();
+  yyextra->current->name.clear();
+  yyextra->current->args.clear();
   yyextra->current->argList.clear();
   lineCount(yyscanner) ;
 }
@@ -7463,20 +7548,20 @@ static inline void initMethodProtection(yyscan_t yyscanner,Protection prot)
 static void addType(yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  uint32_t tl=yyextra->current->type.length();
+  size_t tl=yyextra->current->type.length();
   if( tl>0 && !yyextra->current->name.isEmpty() && yyextra->current->type.at(tl-1)!='.')
   {
     yyextra->current->type += ' ' ;
   }
   yyextra->current->type += yyextra->current->name;
-  yyextra->current->name.resize(0) ;
+  yyextra->current->name.clear() ;
   tl=yyextra->current->type.length();
   if( tl>0 && !yyextra->current->args.isEmpty() && yyextra->current->type.at(tl-1)!='.')
   {
     yyextra->current->type += ' ' ;
   }
   yyextra->current->type += yyextra->current->args ;
-  yyextra->current->args.resize(0) ;
+  yyextra->current->args.clear() ;
   yyextra->current->argList.clear();
 }
 
@@ -7484,7 +7569,7 @@ static void addType(yyscan_t yyscanner)
 static QCString stripQuotes(const char *s)
 {
   QCString name;
-  if (s==0 || *s==0) return name;
+  if (s==nullptr || *s==0) return name;
   name=s;
   if (name.at(0)=='"' && name.at(name.length()-1)=='"')
   {
@@ -7497,7 +7582,7 @@ static QCString stripFuncPtr(const QCString &type)
 {
   // we need to strip any trailing * and & (see bugs 623023 and 649103 for test cases)
   // also needed to reset the type for 'arr' to 'int' in 'typedef int (&fp)(), arr[2]'
-  int i=type.length();
+  size_t i=type.length();
   bool funcPtr = i>0 && type[i-1]==')';
   if (funcPtr) i--;
   while (i>0 && (type[i-1]=='*' || type[i-1]=='&' || type[i-1]==' ')) i--;
@@ -7532,16 +7617,16 @@ static void setContext(yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   yyextra->language    = getLanguageFromFileName(yyextra->fileName);
-  yyextra->insideIDL   = yyextra->language==SrcLangExt_IDL;
-  yyextra->insideJava  = yyextra->language==SrcLangExt_Java;
-  yyextra->insideCS    = yyextra->language==SrcLangExt_CSharp;
-  yyextra->insideD     = yyextra->language==SrcLangExt_D;
-  yyextra->insidePHP   = yyextra->language==SrcLangExt_PHP;
-  yyextra->insideObjC  = yyextra->language==SrcLangExt_ObjC;
-  yyextra->insideJS    = yyextra->language==SrcLangExt_JS;
-  yyextra->insideSlice = yyextra->language==SrcLangExt_Slice;
-  yyextra->insideCpp   = (yyextra->language==SrcLangExt_Cpp ||
-                          yyextra->language==SrcLangExt_Lex);
+  yyextra->insideIDL   = yyextra->language==SrcLangExt::IDL;
+  yyextra->insideJava  = yyextra->language==SrcLangExt::Java;
+  yyextra->insideCS    = yyextra->language==SrcLangExt::CSharp;
+  yyextra->insideD     = yyextra->language==SrcLangExt::D;
+  yyextra->insidePHP   = yyextra->language==SrcLangExt::PHP;
+  yyextra->insideObjC  = yyextra->language==SrcLangExt::ObjC;
+  yyextra->insideJS    = yyextra->language==SrcLangExt::JS;
+  yyextra->insideSlice = yyextra->language==SrcLangExt::Slice;
+  yyextra->insideCpp   = (yyextra->language==SrcLangExt::Cpp ||
+                          yyextra->language==SrcLangExt::Lex);
   //printf("setContext(%s) yyextra->insideIDL=%d yyextra->insideJava=%d yyextra->insideCS=%d "
   //       "yyextra->insideD=%d yyextra->insidePHP=%d yyextra->insideObjC=%d\n",
   //       qPrint(yyextra->fileName),yyextra->insideIDL,yyextra->insideJava,yyextra->insideCS,yyextra->insideD,yyextra->insidePHP,yyextra->insideObjC
@@ -7602,7 +7687,7 @@ static void setJavaProtection(yyscan_t yyscanner)
 static void splitKnRArg(yyscan_t yyscanner,QCString &oldStyleArgPtr,QCString &oldStyleArgName)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  int si = yyextra->current->args.length();
+  int si = static_cast<int>(yyextra->current->args.length());
   if (yyextra->oldStyleArgType.isEmpty()) // new argument
   {
     std::string args = yyextra->current->args.str();
@@ -7725,7 +7810,7 @@ void fixArgumentListForJavaScript(ArgumentList &al)
     if (!a.type.isEmpty() && a.name.isEmpty())
     { // a->type is actually the (typeless) parameter name, so move it
       a.name=a.type;
-      a.type.resize(0);
+      a.type.clear();
     }
   }
 }
@@ -7845,8 +7930,8 @@ static void handleParametersCommentBlocks(yyscan_t yyscanner,ArgumentList &al)
       int orgDocLine    = yyextra->current->docLine;
       int orgBriefLine  = yyextra->current->briefLine;
 
-      yyextra->current->doc.resize(0);
-      yyextra->current->brief.resize(0);
+      yyextra->current->doc.clear();
+      yyextra->current->brief.clear();
 
       //printf("handleParametersCommentBlock [%s]\n",qPrint(doc));
       int lineNr = orgDocLine;
@@ -7915,7 +8000,7 @@ static void parseCompounds(yyscan_t yyscanner,const std::shared_ptr<Entry> &rt)
       //setContext();
       yyextra->yyLineNr = ce->bodyLine;
       yyextra->yyColNr = ce->bodyColumn;
-      yyextra->insideObjC = ce->lang==SrcLangExt_ObjC;
+      yyextra->insideObjC = ce->lang==SrcLangExt::ObjC;
       //printf("---> Inner block starts at line %d objC=%d\n",yyextra->yyLineNr,yyextra->insideObjC);
       yyextra->current = std::make_shared<Entry>();
       yyextra->isStatic = FALSE;
@@ -7942,7 +8027,7 @@ static void parseCompounds(yyscan_t yyscanner,const std::shared_ptr<Entry> &rt)
         }
         else if (ce->spec.isInterface() || ce->spec.isRef() || ce->spec.isValue() || ce->spec.isStruct() || ce->spec.isUnion())
         {
-          if (ce->lang==SrcLangExt_ObjC)
+          if (ce->lang==SrcLangExt::ObjC)
           {
             yyextra->current->protection = yyextra->protection = Protection::Protected ;
           }
@@ -7984,8 +8069,8 @@ static void parseCompounds(yyscan_t yyscanner,const std::shared_ptr<Entry> &rt)
       //printf("name=%s yyextra->current->isStatic=%d yyextra->isStatic=%d\n",qPrint(ce->name),yyextra->current->isStatic,yyextra->isStatic);
 
       //memberGroupId = DOX_NOGROUP;
-      //memberGroupRelates.resize(0);
-      //memberGroupInside.resize(0);
+      //memberGroupRelates.clear();
+      //memberGroupInside.clear();
       QCString name = ce->name;
       yyextra->commentScanner.enterCompound(yyextra->fileName,yyextra->yyLineNr,name);
 
@@ -7995,7 +8080,7 @@ static void parseCompounds(yyscan_t yyscanner,const std::shared_ptr<Entry> &rt)
 
       yyextra->commentScanner.leaveCompound(yyextra->fileName,yyextra->yyLineNr,name);
 
-      yyextra->programStr.resize(0);
+      yyextra->programStr.clear();
       ce->program.str(std::string());
 
 
@@ -8084,7 +8169,7 @@ static void parseMain(yyscan_t yyscanner,
   //forceEndGroup();
   yyextra->commentScanner.leaveFile(yyextra->fileName,yyextra->yyLineNr);
 
-  yyextra->programStr.resize(0);
+  yyextra->programStr.clear();
   rt->program.str(std::string());
 
   parseCompounds(yyscanner,rt);
@@ -8192,7 +8277,7 @@ bool COutlineParser::needsPreprocessing(const QCString &extension) const
 {
   QCString fe=extension.lower();
   SrcLangExt lang = getLanguageFromFileName(extension);
-  return (SrcLangExt_Cpp == lang) || (SrcLangExt_Lex == lang) ||
+  return (SrcLangExt::Cpp == lang) || (SrcLangExt::Lex == lang) ||
    !( fe==".java" || fe==".as"  || fe==".d"    || fe==".php" ||
       fe==".php4" || fe==".inc" || fe==".phtml"|| fe==".php5"
     );

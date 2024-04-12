@@ -65,7 +65,7 @@ void CodeFragmentManager::Private::FragmentInfo::findBlockMarkers()
   const char *s=fileContents.data();
   int lineNr=1;
   char c;
-  const char *foundOpen=0;
+  const char *foundOpen=nullptr;
   std::unordered_map<std::string,BlockMarker> candidates;
   while ((c=*s))
   {
@@ -80,7 +80,7 @@ void CodeFragmentManager::Private::FragmentInfo::findBlockMarkers()
     }
     else if (c=='\n')
     {
-      foundOpen=0;
+      foundOpen=nullptr;
       lineNr++;
     }
     s++;
@@ -92,7 +92,7 @@ void CodeFragmentManager::Private::FragmentInfo::findBlockMarkers()
   for (auto &kv : candidates)
   {
     auto &marker = kv.second;
-    if (marker.lines.size()==2 && marker.lines[0]+1<marker.lines[1]-1)
+    if (marker.lines.size()==2 && marker.lines[0]+1<=marker.lines[1]-1)
     {
       marker.key = kv.first;
       int startLine = marker.lines[0];
@@ -222,7 +222,7 @@ void CodeFragmentManager::Private::FragmentInfo::findBlockMarkers()
     // copy part after the last indented block
     while (s < e) *d++=*s++;
     // shrink the string for the indentation that was removed
-    fileContentsTrimLeft.resize(d-fileContentsTrimLeft.data()+1);
+    fileContentsTrimLeft.resize(d-fileContentsTrimLeft.data());
     //printf("result after trimming:\n=====%s=====\n",qPrint(fileContentsTrimLeft));
     recorderCodeListTrimLeft.add<OutputCodeRecorder>();
   }

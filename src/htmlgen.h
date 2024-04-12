@@ -64,7 +64,7 @@ class HtmlCodeGenerator
                         const QCString &tooltip);
     void docify(const QCString &str);
     TextStream *m_t;
-    int m_col = 0;
+    size_t m_col = 0;
     QCString m_relPath;
     QCString m_fileName;
     bool m_lineOpen = false;
@@ -203,6 +203,7 @@ class HtmlGenerator : public OutputGenerator
                          const QCString &anchor,const QCString &name,
                          const QCString &args);
     void endDoxyAnchor(const QCString &fName,const QCString &anchor);
+    void addLabel(const QCString &,const QCString &);
     void writeLatexSpacing() {}
     void writeStartAnnoItem(const QCString &type,const QCString &file,
                             const QCString &path,const QCString &name);
@@ -227,7 +228,7 @@ class HtmlGenerator : public OutputGenerator
     void writeSplitBar(const QCString &name);
     void writeNavigationPath(const QCString &s);
     void writeLogo();
-    void writeQuickLinks(HighlightedItem hli,const QCString &file,bool needsFolding);
+    void writeQuickLinks(HighlightedItem hli,const QCString &file);
     void writeSummaryLink(const QCString &file,const QCString &anchor,const QCString &title,bool first);
     void startContents();
     void endContents();
@@ -269,7 +270,9 @@ class HtmlGenerator : public OutputGenerator
     void startParameterType(bool first,const QCString &key);
     void endParameterType();
     void startParameterName(bool);
-    void endParameterName(bool last,bool emptyList,bool closeBracket);
+    void endParameterName();
+    void startParameterExtra();
+    void endParameterExtra(bool last,bool emptyList,bool closeBracket);
     void startParameterDefVal(const char *sep);
     void endParameterDefVal();
     void startParameterList(bool);

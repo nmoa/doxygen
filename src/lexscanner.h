@@ -29,6 +29,7 @@ class LexOutlineParser : public OutlineParserInterface
   public:
     LexOutlineParser();
    ~LexOutlineParser();
+    NON_COPYABLE(LexOutlineParser)
     void parseInput(const QCString &fileName,
                     const char *fileBuf,
                     const std::shared_ptr<Entry> &root,

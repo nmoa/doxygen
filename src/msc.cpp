@@ -188,7 +188,7 @@ void writeMscGraphFromFile(const QCString &inFile,const QCString &outDir,
 
   if ( (format==MSC_EPS) && (Config_getBool(USE_PDFLATEX)) )
   {
-    QCString epstopdfArgs(maxCmdLine);
+    QCString epstopdfArgs(maxCmdLine, QCString::ExplicitSize);
     epstopdfArgs.sprintf("\"%s.eps\" --outfile=\"%s.pdf\"",
                          qPrint(absOutFile),qPrint(absOutFile));
     if (Portable::system("epstopdf",epstopdfArgs)!=0)
@@ -198,6 +198,11 @@ void writeMscGraphFromFile(const QCString &inFile,const QCString &outDir,
     }
   }
 
+  int i=std::max(imgName.findRev('/'),imgName.findRev('\\'));
+  if (i!=-1) // strip path
+  {
+    imgName=imgName.right(imgName.length()-i-1);
+  }
   Doxygen::indexList->addImageFile(imgName);
 
 }

@@ -49,8 +49,8 @@ static const char *normalArrowStyleMap[] =
   "empty",         // Protected
   "empty",         // Private
   "open",          // "use" relation
-  0,               // Undocumented
-  0                // template relation
+  nullptr,         // Undocumented
+  nullptr          // template relation
 };
 
 static const char *normalEdgeStyleMap[] =
@@ -76,8 +76,8 @@ static const char *umlArrowStyleMap[] =
   "onormal",         // Protected
   "onormal",         // Private
   "odiamond",        // "use" relation
-  0,                 // Undocumented
-  0                  // template relation
+  nullptr,           // Undocumented
+  nullptr           // template relation
 };
 
 static const char *umlEdgeStyleMap[] =
@@ -202,8 +202,7 @@ QCString DotNode::convertLabel(const QCString &l, bool htmlLike)
   QCString result;
   char c,pc=0;
   uint32_t idx = 0;
-  int len=p.length();
-  int charsLeft=len;
+  int charsLeft=static_cast<int>(p.length());
   int sinceLast=0;
   int foldLen = Config_getInt(DOT_WRAP_THRESHOLD); // ideal text length
   QCString br;
@@ -309,10 +308,6 @@ DotNode::DotNode(DotGraph *graph,const QCString &lab,const QCString &tip, const 
   , m_url(url)
   , m_isRoot(isRoot)
   , m_classDef(cd)
-{
-}
-
-DotNode::~DotNode()
 {
 }
 
@@ -462,7 +457,7 @@ void DotNode::writeLabel(TextStream &t, GraphType gt) const
         writeBoxMemberList(t,'-',m_classDef->getMemberList(MemberListType_priStaticMethods),m_classDef,lineWritten,TRUE);
         writeBoxMemberList(t,'-',m_classDef->getMemberList(MemberListType_priSlots),m_classDef,lineWritten);
       }
-      if (m_classDef->getLanguage()!=SrcLangExt_Fortran)
+      if (m_classDef->getLanguage()!=SrcLangExt::Fortran)
       {
         for (const auto &mg : m_classDef->getMemberGroups())
         {
